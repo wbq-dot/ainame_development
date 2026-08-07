@@ -1,0 +1,54 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": { "navigationStyle": "custom" }
+    },
+    {
+      "path": "pages/naming/index",
+      "style": { "navigationBarTitleText": "AI 起名" }
+    },
+    {
+      "path": "pages/create/index",
+      "style": { "navigationBarTitleText": "创作工具" }
+    },
+    {
+      "path": "pages/account/index",
+      "style": { "navigationBarTitleText": "账户与套餐" }
+    },
+    {
+      "path": "pages/auth/login",
+      "style": { "navigationBarTitleText": "登录" }
+    },
+    {
+      "path": "pages/auth/register",
+      "style": { "navigationBarTitleText": "注册" }
+    },
+    {
+      "path": "pages/admin/users",
+      "style": { "navigationBarTitleText": "用户管理" }
+    },
+    {
+      "path": "pages/admin/login",
+      "style": { "navigationBarTitleText": "管理员登录" }
+    }
+  ],
+  "tabBar": {
+    "color": "#8a93a6",
+    "selectedColor": "#6257e8",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "首页" },
+      { "pagePath": "pages/naming/index", "text": "起名" },
+      { "pagePath": "pages/create/index", "text": "创作" },
+      { "pagePath": "pages/account/index", "text": "我的" }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "知名台",
+    "navigationBarBackgroundColor": "#f5f7fb",
+    "backgroundColor": "#f5f7fb"
+  }
+}
