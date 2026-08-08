@@ -2,7 +2,7 @@ from models.package import Package
 from models.user_order import UserOrder
 from datetime import datetime
 import random
-from sqlalchemy import select
+from sqlalchemy import delete, func, select, text
 from models.user_credit import UserCredit,CreditLog
 
 class OrderRepo:
@@ -24,6 +24,7 @@ class OrderRepo:
                 package_id=package.id,
                 amount=package.price,
                 credit_count=package.credit_count,
+                credit_type=package.credit_type,
                 status="pending"
             )
            self.session.add(order)
@@ -34,6 +35,21 @@ class OrderRepo:
         async with self.session.begin():
             order = await  self.session.scalar(select(UserOrder).where(UserOrder.order_no == order_no))
             return order
+
+    async def delete_expired_pending_orders(self):
+        """Delete pending orders that have been unpaid for more than one hour."""
+        async with self.session.begin():
+            result = await self.session.execute(
+                delete(UserOrder).where(
+                    UserOrder.status == "pending",
+                    UserOrder.created_at <= func.date_sub(
+                        func.now(),
+                        text("INTERVAL 1 HOUR"),
+                    ),
+                )
+            )
+            rowcount = result.rowcount
+            return rowcount if rowcount is not None and rowcount > 0 else 0
 
     async def pay_success(self, order_no, alipay_trade_no):
         async with self.session.begin():
@@ -58,15 +74,28 @@ class OrderRepo:
             # 修改账户次数
             userCredit: UserCredit = await self.session.scalar(
                 select(UserCredit).where(UserCredit.user_id == order.user_id).with_for_update())
-            userCredit.balance = userCredit.balance + order.credit_count
+            if not userCredit:
+                raise ValueError("用户次数账户不存在")
+
+            if order.credit_type == "logo":
+                userCredit.logo_balance += order.credit_count
+                userCredit.logo_total_recharge += order.credit_count
+                balance_after = userCredit.logo_balance
+                credit_label = "Logo"
+            else:
+                userCredit.balance += order.credit_count
+                userCredit.total_recharge += order.credit_count
+                balance_after = userCredit.balance
+                credit_label = "起名"
 
             # 加流水
             log = CreditLog(
                 user_id=order.user_id,
                 change_count=order.credit_count,
-                balance_after=userCredit.balance,
+                balance_after=balance_after,
+                credit_type=order.credit_type,
                 type="recharge",
-                remark=f"支付成功，充值次数为{order.credit_count}"
+                remark=f"支付成功，充值{order.credit_count}次{credit_label}次数"
             )
             self.session.add(log)
             return order, True

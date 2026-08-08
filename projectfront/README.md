@@ -33,6 +33,13 @@ OLLAMA_EMBEDDING_MODEL=qwen3-embedding:4b
 
 # Ollama 本地服务地址
 OLLAMA_BASE_URL=http://127.0.0.1:11434
+
+# 知识库首次检索和精简词降级检索门槛
+RAG_PRIMARY_MIN_SCORE=0.65
+RAG_FALLBACK_MIN_SCORE=0.55
+
+# 每次最多取回的知识文本块数量
+RAG_TOP_K=3
 ```
 
 安全提醒：请手动更换后端 `.env` 中的 `JWT_SECRET_KEY`，使旧测试文件中泄露过的令牌立即失效。不要把真实密码、JWT 或 API 密钥再次写入 `.http` 文件。

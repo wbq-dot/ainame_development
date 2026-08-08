@@ -1,10 +1,13 @@
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import Integer, String, DateTime, ForeignKey, Numeric
+from sqlalchemy import CheckConstraint, Integer, String, DateTime, ForeignKey, Numeric
 from sqlalchemy.orm import Mapped, mapped_column
 from . import Base
 class UserOrder(Base):
     __tablename__ = "user_order"
+    __table_args__ = (
+        CheckConstraint("credit_type IN ('name', 'logo')", name="ck_user_order_credit_type"),
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True,autoincrement=True)
     # 系统内部订单号   字符串类型可以任意的长度，不限制字符类型
     order_no: Mapped[str] = mapped_column(String(100),unique=True,index=True,nullable=False)
@@ -16,6 +19,8 @@ class UserOrder(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     # 购买次数
     credit_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    # 下单时保存套餐类型快照，避免套餐后续修改影响到账类型
+    credit_type: Mapped[str] = mapped_column(String(20), default="name", nullable=False)
     # 订单状态：pending 待支付，paid 已支付，closed 已关闭
     status: Mapped[str] = mapped_column(String(20), default="pending",nullable=False)
     # 支付宝交易号 只有付款才有交易号

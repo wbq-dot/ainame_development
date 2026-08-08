@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -11,4 +12,5 @@ class CreateOrderOut(BaseModel):
     order_no: str
     amount: Decimal
     credit_count: int
+    credit_type: Literal["name", "logo"]
     pay_url: str

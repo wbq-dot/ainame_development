@@ -1,7 +1,7 @@
 <template>
   <view class="page-shell account-page">
     <view class="page-title">我的</view>
-    <view class="page-subtitle">账户次数、套餐购买和本地联调设置。</view>
+    <view class="page-subtitle">账户次数与套餐购买。</view>
 
     <view class="profile-card">
       <view class="avatar">{{ avatarText }}</view>
@@ -9,13 +9,21 @@
         <view class="profile-name">{{ user ? user.username : '尚未登录' }}</view>
         <view class="profile-email">{{ user ? user.email : '登录后查看次数并购买套餐' }}</view>
       </view>
+      <view v-if="user" class="profile-qr" @click="showQr = true"><view class="mini-qr"><text v-for="cell in miniQrCells" :key="cell.index" :class="{ active: cell.active }"></text></view><text>二维码</text></view>
       <button v-if="!user" class="mini-login" @click="goLogin">登录</button>
     </view>
 
     <view class="balance-banner">
-      <view>
-        <view class="balance-label">可用起名次数</view>
-        <view class="balance-value">{{ user ? balance : '—' }}</view>
+      <view class="balance-grid">
+        <view class="balance-item">
+          <view class="balance-label">起名次数</view>
+          <view class="balance-value">{{ user ? nameBalance : '—' }}</view>
+        </view>
+        <view class="balance-divider"></view>
+        <view class="balance-item">
+          <view class="balance-label">Logo 次数</view>
+          <view class="balance-value">{{ user ? logoBalance : '—' }}</view>
+        </view>
       </view>
       <button class="refresh-btn" :loading="balanceLoading" @click="loadBalance">刷新</button>
     </view>
@@ -29,60 +37,91 @@
       <view class="admin-arrow">›</view>
     </view>
 
-    <view class="purchase-heading">
+    <view class="feature-section">
+      <view class="feature-heading"><view><view class="feature-title">账号与设置</view><view class="feature-subtitle">隐私、安全和使用偏好</view></view><view class="feature-decoration"><text></text><text></text><text></text></view></view>
+      <view class="feature-grid">
+        <view v-for="item in featureMenus" :key="item.key" class="feature-item" @click="openFeature(item)">
+          <view class="feature-icon" :style="{ color: item.color, background: item.background }">{{ item.icon }}</view>
+          <view class="feature-name">{{ item.title }}</view>
+          <view class="feature-desc">{{ item.desc }}</view>
+          <view class="feature-arrow">→</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="purchase-heading" :class="{ expanded: packagesExpanded }" @click="togglePackages">
       <view class="purchase-mark">
         <view class="mark-ticket">充</view>
         <view class="mark-spark">✦</view>
       </view>
       <view class="purchase-title-wrap">
         <view class="purchase-title">套餐购买</view>
-        <view class="purchase-subtitle">选择适合你的起名次数</view>
+        <view class="purchase-subtitle">{{ packagesExpanded ? '收起套餐列表' : '点击查看套餐与价格' }}</view>
       </view>
       <view class="sandbox-tag">支付宝沙箱</view>
+      <view class="purchase-arrow">⌄</view>
     </view>
-    <view v-if="packageLoading" class="card center-text">正在加载套餐…</view>
-    <view v-else-if="!packages.length" class="card center-text">暂无上架套餐，或后端尚未连接。</view>
-    <view v-for="(item, index) in packages" :key="item.id" class="package-card" :class="{ featured: index === 1 }">
-      <view v-if="index === 1" class="recommend-tag">推荐</view>
-      <view class="package-info">
-        <view class="package-name">{{ item.name }}</view>
-        <view class="package-count">包含 {{ item.credit_count }} 次起名</view>
+    <view v-if="packagesExpanded" class="package-list">
+      <view class="package-tabs">
+        <view class="package-tab" :class="{ active: packageType === 'name' }" @click="setPackageType('name')">起名套餐</view>
+        <view class="package-tab" :class="{ active: packageType === 'logo' }" @click="setPackageType('logo')">Logo 套餐</view>
       </view>
-      <view class="price-wrap">
-        <view class="price"><text>¥</text>{{ item.price }}</view>
-        <button class="buy-btn" :loading="buyingId === item.id" :disabled="Boolean(buyingId)" @click="confirmCreateOrder(item)">购买</button>
+      <view v-if="packageLoading" class="card center-text">正在加载套餐…</view>
+      <view v-else-if="!filteredPackages.length" class="card center-text">暂无上架的{{ packageType === 'logo' ? ' Logo ' : '起名' }}套餐。</view>
+      <view v-for="(item, index) in filteredPackages" :key="item.id" class="package-card" :class="{ featured: index === 1 }">
+        <view v-if="index === 1" class="recommend-tag">推荐</view>
+        <view class="package-info">
+          <view class="package-name">{{ item.name }}</view>
+          <view class="package-count">到账 {{ item.credit_count }} 次{{ creditLabel(item.credit_type) }}</view>
+        </view>
+        <view class="price-wrap">
+          <view class="price"><text>¥</text>{{ item.price }}</view>
+          <button class="buy-btn" :loading="buyingId === item.id" :disabled="Boolean(buyingId)" @click.stop="confirmCreateOrder(item)">购买</button>
+        </view>
       </view>
-    </view>
-
-    <view class="section-head">
-      <text class="section-title">服务设置</text>
-    </view>
-    <view class="card settings-card">
-      <view class="setting-title">后端服务地址</view>
-      <view class="setting-desc">真机测试请改为电脑局域网 IP，不要使用 127.0.0.1。</view>
-      <input v-model.trim="apiBaseUrl" class="server-input" placeholder="http://127.0.0.1:8000" />
-      <button class="secondary-btn save-btn" @click="confirmSaveServer">保存并检查连接</button>
     </view>
 
     <button v-if="user" class="danger-btn logout-btn" @click="confirmLogout">退出登录</button>
+
+    <view v-if="showQr" class="modal-mask" @click="showQr = false">
+      <view class="qr-modal" @click.stop>
+        <view class="qr-close" @click="showQr = false">×</view>
+        <view class="qr-avatar">{{ avatarText }}</view>
+        <view class="qr-name">{{ user ? user.username : '' }}</view>
+        <view class="qr-email">{{ user ? user.email : '' }}</view>
+        <view class="qr-code"><text v-for="cell in qrCells" :key="cell.index" :class="{ active: cell.active }"></text></view>
+        <view class="qr-code-text">账号编码 {{ accountCode }}</view>
+        <view class="qr-note">个人二维码预览不包含密码或登录令牌</view>
+        <button class="secondary-btn copy-code" @click="copyAccountCode">复制账号编码</button>
+      </view>
+    </view>
   </view>
 </template>
 
 <script>
 import { api } from '../../api'
 import { clearLogin, getAccessToken, getUser, requireLogin } from '../../utils/auth'
-import { getApiBaseUrl, setApiBaseUrl } from '../../utils/config'
 
 export default {
   data() {
     return {
       user: null,
-      balance: 0,
+      nameBalance: 0,
+      logoBalance: 0,
       balanceLoading: false,
       packageLoading: false,
       packages: [],
+      packagesLoaded: false,
+      packagesExpanded: false,
       buyingId: null,
-      apiBaseUrl: ''
+      packageType: 'name',
+      showQr: false,
+      featureMenus: [
+        { key: 'security', title: '账号安全', desc: '登录与邮箱状态', icon: '盾', color: '#3d8b72', background: '#e5f7f0' },
+        { key: 'display', title: '界面显示', desc: '字号与对比度', icon: '显', color: '#6257e8', background: '#ebe9ff' },
+        { key: 'history', title: '聊天记录', desc: '查看起名历史', icon: '记', color: '#b16b35', background: '#fff1df' },
+        { key: 'settings', title: '通用设置', desc: '偏好与设备设置', icon: '设', color: '#59677f', background: '#edf0f5' }
+      ]
     }
   },
   computed: {
@@ -91,20 +130,77 @@ export default {
     },
     avatarText() {
       return this.user && this.user.username ? this.user.username.slice(0, 1).toUpperCase() : '访'
+    },
+    filteredPackages() {
+      return this.packages.filter((item) => (item.credit_type || 'name') === this.packageType)
+    },
+    accountCode() {
+      if (!this.user) return ''
+      const id = this.user.id || this.user.user_id || 'USER'
+      return `ZN-${String(id).padStart(6, '0')}`
+    },
+    qrCells() {
+      return this.buildQrCells(11)
+    },
+    miniQrCells() {
+      return this.buildQrCells(5)
     }
   },
   onShow() {
     this.user = getUser()
-    this.apiBaseUrl = getApiBaseUrl()
-    this.loadPackages()
     if (getAccessToken()) this.loadBalance()
+    const requestedType = uni.getStorageSync('account_package_type')
+    if (requestedType === 'name' || requestedType === 'logo') {
+      this.packageType = requestedType
+      this.packagesExpanded = true
+      uni.removeStorageSync('account_package_type')
+      if (!this.packagesLoaded) this.loadPackages()
+    }
   },
   methods: {
     goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) },
     openAdminUsers() { uni.navigateTo({ url: '/pages/admin/users' }) },
+    buildQrCells(size) {
+      const seedText = this.accountCode || 'ZN'
+      let seed = 0
+      for (let index = 0; index < seedText.length; index += 1) seed = (seed * 31 + seedText.charCodeAt(index)) >>> 0
+      return Array.from({ length: size * size }, (_, index) => {
+        const row = Math.floor(index / size)
+        const column = index % size
+        const inTopLeft = row < 3 && column < 3
+        const inTopRight = row < 3 && column >= size - 3
+        const inBottomLeft = row >= size - 3 && column < 3
+        const finder = inTopLeft || inTopRight || inBottomLeft
+        const finderActive = finder && (row % (size - 3 || 1) !== 1 || column % (size - 3 || 1) !== 1)
+        const randomActive = ((seed + index * 17 + row * column * 13) % 7) < 3
+        return { index, active: finder ? finderActive : randomActive }
+      })
+    },
+    openFeature(item) {
+      if (item.key === 'history') { uni.navigateTo({ url: '/pages/history/index' }); return }
+      if (!this.user) { this.goLogin(); return }
+      const section = item.key === 'security' ? 'security' : 'display'
+      uni.navigateTo({ url: `/pages/settings/index?section=${section}` })
+    },
+    copyAccountCode() {
+      uni.setClipboardData({ data: this.accountCode, success: () => uni.showToast({ title: '账号编码已复制', icon: 'success' }) })
+    },
+    async togglePackages() {
+      this.packagesExpanded = !this.packagesExpanded
+      if (this.packagesExpanded && !this.packagesLoaded) await this.loadPackages()
+    },
+    setPackageType(type) {
+      this.packageType = type
+    },
+    creditLabel(type) {
+      return type === 'logo' ? 'Logo' : '起名'
+    },
     async loadPackages() {
       this.packageLoading = true
-      try { this.packages = await api.getPackages() }
+      try {
+        this.packages = await api.getPackages()
+        this.packagesLoaded = true
+      }
       catch (error) { uni.showToast({ title: error.message, icon: 'none' }) }
       finally { this.packageLoading = false }
     },
@@ -113,7 +209,8 @@ export default {
       this.balanceLoading = true
       try {
         const data = await api.getBalance()
-        this.balance = data.balance
+        this.nameBalance = data.name_balance ?? data.balance ?? 0
+        this.logoBalance = data.logo_balance ?? 0
       } catch (error) {
         this.user = null
         uni.showToast({ title: error.message, icon: 'none' })
@@ -125,7 +222,7 @@ export default {
       if (!requireLogin()) return
       uni.showModal({
         title: '确认创建支付订单',
-        content: `准确动作：\n1. 为“${item.name}”创建一笔 ¥${item.price} 的未支付订单；\n2. 后端返回支付宝沙箱链接；\n3. 再由你决定是否打开支付宝页面。\n\n现在创建订单吗？`,
+        content: `准确动作：\n1. 为“${item.name}”创建一笔 ¥${item.price} 的未支付订单；\n2. 支付成功后到账 ${item.credit_count} 次${this.creditLabel(item.credit_type)}；\n3. 后端返回支付宝沙箱链接，再由你决定是否打开。\n\n现在创建订单吗？`,
         confirmText: '创建订单',
         success: ({ confirm }) => {
           if (confirm) this.createOrder(item)
@@ -138,7 +235,7 @@ export default {
         const order = await api.createOrder(item.id)
         uni.showModal({
           title: '订单已创建',
-          content: `订单号：${order.order_no}\n金额：¥${order.amount}\n到账次数：${order.credit_count}\n\n点击“打开支付宝”只会进入沙箱支付页，实际付款仍需你在支付宝页面确认。`,
+          content: `订单号：${order.order_no}\n金额：¥${order.amount}\n到账：${order.credit_count} 次${this.creditLabel(order.credit_type)}\n\n点击“打开支付宝”只会进入沙箱支付页，实际付款仍需你在支付宝页面确认。`,
           confirmText: '打开支付宝',
           cancelText: '暂不支付',
           success: ({ confirm }) => {
@@ -163,26 +260,6 @@ export default {
       })
       // #endif
     },
-    confirmSaveServer() {
-      uni.showModal({
-        title: '确认修改服务地址',
-        content: `将本应用保存的后端地址修改为：\n${this.apiBaseUrl}\n\n之后所有接口测试都会访问这个地址。是否继续？`,
-        confirmText: '确认修改',
-        success: ({ confirm }) => {
-          if (confirm) this.saveServer()
-        }
-      })
-    },
-    async saveServer() {
-      try {
-        setApiBaseUrl(this.apiBaseUrl)
-        await api.health()
-        uni.showToast({ title: '保存成功，后端可访问', icon: 'success' })
-        this.loadPackages()
-      } catch (error) {
-        uni.showToast({ title: error.message, icon: 'none', duration: 3200 })
-      }
-    },
     confirmLogout() {
       uni.showModal({
         title: '确认退出登录',
@@ -192,7 +269,8 @@ export default {
           if (confirm) {
             clearLogin()
             this.user = null
-            this.balance = 0
+            this.nameBalance = 0
+            this.logoBalance = 0
             uni.showToast({ title: '已退出登录', icon: 'success' })
           }
         }
@@ -209,8 +287,15 @@ export default {
 .profile-main { flex: 1; min-width: 0; margin-left: 20rpx; }
 .profile-name { font-size: 30rpx; font-weight: 800; }
 .profile-email { margin-top: 7rpx; overflow: hidden; color: #8c95a7; font-size: 21rpx; text-overflow: ellipsis; white-space: nowrap; }
+.profile-qr { display: flex; flex-direction: column; align-items: center; gap: 5rpx; color: #8a92a2; font-size: 17rpx; }
+.mini-qr { display: grid; grid-template-columns: repeat(5, 5rpx); gap: 2rpx; padding: 7rpx; background: #f4f3ff; border-radius: 10rpx; }
+.mini-qr text { width: 5rpx; height: 5rpx; background: transparent; }
+.mini-qr text.active { background: #4d43ae; }
 .mini-login { width: 110rpx; height: 62rpx; margin: 0; color: #6257e8; background: #ebe9ff; border-radius: 17rpx; font-size: 23rpx; line-height: 62rpx; }
-.balance-banner { display: flex; align-items: center; justify-content: space-between; margin-top: 20rpx; padding: 30rpx; color: #fff; background: linear-gradient(135deg, #30305e, #5548c4); border-radius: 28rpx; }
+.balance-banner { display: flex; align-items: center; justify-content: space-between; gap: 22rpx; margin-top: 20rpx; padding: 30rpx; color: #fff; background: linear-gradient(135deg, #30305e, #5548c4); border-radius: 28rpx; }
+.balance-grid { display: flex; flex: 1; align-items: center; }
+.balance-item { flex: 1; }
+.balance-divider { width: 1rpx; height: 72rpx; margin: 0 26rpx; background: rgba(255, 255, 255, 0.2); }
 .balance-label { color: #d5d2f5; font-size: 22rpx; }
 .balance-value { margin-top: 4rpx; font-size: 52rpx; font-weight: 850; }
 .refresh-btn { width: 120rpx; height: 64rpx; margin: 0; color: #fff; background: rgba(255, 255, 255, 0.15); border: 1rpx solid rgba(255, 255, 255, 0.2); border-radius: 18rpx; font-size: 22rpx; line-height: 64rpx; }
@@ -220,7 +305,22 @@ export default {
 .admin-entry-title { font-size: 28rpx; font-weight: 800; }
 .admin-entry-desc { margin-top: 6rpx; color: #c9cedb; font-size: 20rpx; }
 .admin-arrow { color: #f2d586; font-size: 46rpx; font-weight: 300; }
-.purchase-heading { display: flex; align-items: center; margin-top: 38rpx; padding: 24rpx 26rpx; background: linear-gradient(135deg, #ece9ff, #f7f5ff); border: 2rpx solid #ded9ff; border-radius: 25rpx; }
+.feature-section { margin-top: 27rpx; }
+.feature-heading { display: flex; align-items: center; justify-content: space-between; padding: 0 5rpx; }
+.feature-title { font-size: 31rpx; font-weight: 850; }
+.feature-subtitle { margin-top: 6rpx; color: #929aaa; font-size: 20rpx; }
+.feature-decoration { display: flex; gap: 7rpx; }
+.feature-decoration text { width: 12rpx; height: 12rpx; background: #6257e8; border-radius: 50%; }
+.feature-decoration text:nth-child(2) { background: #79cfb7; }
+.feature-decoration text:nth-child(3) { background: #f2bd68; }
+.feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 17rpx; margin-top: 18rpx; }
+.feature-item { position: relative; min-height: 190rpx; padding: 23rpx; background: #fff; border-radius: 24rpx; box-shadow: 0 11rpx 32rpx rgba(36,55,86,.055); }
+.feature-icon { display: flex; align-items: center; justify-content: center; width: 58rpx; height: 58rpx; border-radius: 17rpx; font-size: 22rpx; font-weight: 900; }
+.feature-name { margin-top: 16rpx; font-size: 25rpx; font-weight: 800; }
+.feature-desc { margin-top: 5rpx; color: #949cab; font-size: 18rpx; }
+.feature-arrow { position: absolute; right: 20rpx; bottom: 17rpx; color: #9c94d6; font-size: 25rpx; }
+.purchase-heading { display: flex; align-items: center; margin-top: 38rpx; padding: 24rpx 26rpx; background: linear-gradient(135deg, #ece9ff, #f7f5ff); border: 2rpx solid #ded9ff; border-radius: 25rpx; transition: border-radius 0.2s ease, box-shadow 0.2s ease; }
+.purchase-heading.expanded { border-color: #c8c0ff; box-shadow: 0 12rpx 30rpx rgba(98, 87, 232, 0.1); }
 .purchase-mark { position: relative; flex: 0 0 76rpx; height: 76rpx; }
 .mark-ticket { display: flex; align-items: center; justify-content: center; width: 68rpx; height: 68rpx; color: #fff; background: linear-gradient(135deg, #6257e8, #9673f0); border-radius: 20rpx; box-shadow: 0 10rpx 22rpx rgba(98, 87, 232, 0.22); font-size: 28rpx; font-weight: 850; }
 .mark-spark { position: absolute; top: -12rpx; right: -2rpx; color: #f2a33a; font-size: 25rpx; }
@@ -228,6 +328,12 @@ export default {
 .purchase-title { color: #332b78; font-size: 30rpx; font-weight: 820; }
 .purchase-subtitle { margin-top: 5rpx; color: #827ca4; font-size: 21rpx; }
 .sandbox-tag { padding: 9rpx 14rpx; color: #71652f; background: #fff5c9; border-radius: 999rpx; font-size: 18rpx; }
+.purchase-arrow { margin-left: 14rpx; color: #6257e8; font-size: 38rpx; line-height: 1; transform: rotate(0deg); transition: transform 0.2s ease; }
+.purchase-heading.expanded .purchase-arrow { transform: rotate(180deg); }
+.package-list { padding-top: 2rpx; }
+.package-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8rpx; margin-top: 18rpx; padding: 8rpx; background: #e9ecf2; border-radius: 20rpx; }
+.package-tab { height: 68rpx; color: #7c8494; border-radius: 15rpx; font-size: 23rpx; font-weight: 700; line-height: 68rpx; text-align: center; }
+.package-tab.active { color: #4439b0; background: #fff; box-shadow: 0 7rpx 20rpx rgba(36, 55, 86, 0.08); }
 .package-card { position: relative; display: flex; align-items: center; justify-content: space-between; margin-top: 18rpx; padding: 27rpx; overflow: hidden; background: #fff; border: 2rpx solid transparent; border-radius: 25rpx; box-shadow: 0 12rpx 34rpx rgba(36, 55, 86, 0.05); }
 .package-card.featured { border-color: #bbb3ff; background: linear-gradient(135deg, #fff, #f4f2ff); }
 .recommend-tag { position: absolute; top: 0; left: 0; padding: 7rpx 18rpx; color: #fff; background: #7164e9; border-radius: 0 0 16rpx 0; font-size: 18rpx; }
@@ -238,10 +344,17 @@ export default {
 .price text { margin-right: 3rpx; font-size: 19rpx; }
 .buy-btn { width: 105rpx; height: 64rpx; margin: 0; color: #fff; background: #6257e8; border-radius: 18rpx; font-size: 22rpx; line-height: 64rpx; }
 .center-text { color: #8b94a5; font-size: 24rpx; text-align: center; }
-.settings-card { padding: 4rpx 28rpx 28rpx; }
-.setting-title { font-size: 27rpx; font-weight: 720; }
-.setting-desc { margin-top: 6rpx; color: #939cad; font-size: 21rpx; line-height: 1.5; }
-.server-input { height: 82rpx; margin-top: 18rpx; padding: 0 20rpx; background: #f4f6fa; border-radius: 17rpx; font-size: 24rpx; }
-.save-btn { height: 76rpx; margin-top: 16rpx; line-height: 76rpx; }
 .logout-btn { margin-top: 26rpx; }
+.modal-mask { position: fixed; z-index: 999; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; padding: 40rpx; background: rgba(20,23,43,.55); backdrop-filter: blur(8rpx); }
+.qr-modal { position: relative; width: 610rpx; padding: 40rpx 42rpx 38rpx; background: linear-gradient(155deg,#fff,#f4f2ff); border-radius: 35rpx; box-shadow: 0 30rpx 80rpx rgba(16,17,49,.28); text-align: center; }
+.qr-close { position: absolute; top: 18rpx; right: 22rpx; width: 55rpx; height: 55rpx; color: #7e8594; background: #eceef3; border-radius: 50%; font-size: 38rpx; line-height: 50rpx; }
+.qr-avatar { display: flex; align-items: center; justify-content: center; width: 82rpx; height: 82rpx; margin: 0 auto; color: #fff; background: linear-gradient(135deg,#6257e8,#9a72ef); border-radius: 24rpx; font-size: 34rpx; font-weight: 900; }
+.qr-name { margin-top: 15rpx; color: #26224e; font-size: 30rpx; font-weight: 850; }
+.qr-email { margin-top: 5rpx; color: #949baa; font-size: 20rpx; }
+.qr-code { display: grid; grid-template-columns: repeat(11, 14rpx); gap: 4rpx; justify-content: center; width: 240rpx; margin: 25rpx auto 0; padding: 20rpx; background: #fff; border: 2rpx solid #e1def5; border-radius: 19rpx; box-shadow: 0 10rpx 28rpx rgba(68,56,147,.09); }
+.qr-code text { width: 14rpx; height: 14rpx; background: transparent; border-radius: 2rpx; }
+.qr-code text.active { background: #292452; }
+.qr-code-text { margin-top: 17rpx; color: #5147b9; font-size: 22rpx; font-weight: 780; letter-spacing: 2rpx; }
+.qr-note { margin-top: 9rpx; color: #9aa1af; font-size: 18rpx; }
+.copy-code { margin-top: 23rpx; }
 </style>

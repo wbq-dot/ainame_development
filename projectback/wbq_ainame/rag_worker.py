@@ -14,6 +14,7 @@ rabbitMQ 基于 Erlang 语言开发的消息中间件，主要用于实现服务
 
 import asyncio
 import json
+import logging
 import sys
 import os
 import settings
@@ -21,6 +22,11 @@ import aio_pika
 from core.rag_service import process_and_store_file
 from dotenv import load_dotenv
 load_dotenv()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger("rag_worker")
 
 # rabbitMQ 就像一个智能的“任务排队缓冲区”。当系统需要执行大量函数节点时，它不会让所有任务一拥而上直接压垮系统，而是先把这些函数执行所需的关键参数数据暂存在队列里。
 # 然后，下游服务按照自己能够承受的节奏，按序列、依次地从队列中取出数据并执行。
@@ -28,27 +34,51 @@ load_dotenv()
 RABBITMQ_URL = os.getenv("RABBITMQ_URL")
 
 async def process_message(message: aio_pika.IncomingMessage):  # message 存在 rabbitMQ 的消息
-    # 开启这个消息的执行过程，之前存入的 json 数据
-    async with message.process():
+    try:
         task_data = json.loads(message.body.decode("utf-8"))  # 将存入的 json 数据加载为 dict 拿出来
-        user_id = task_data.get("user_id")   # 取 user_id 值
+        user_id = int(task_data["user_id"])   # 取 user_id 值
         file_path = task_data.get("file_path") # 取 file_path 值
-        process_and_store_file(file_path,user_id)   # 执行的文件向量化操作
+        knowledge_type = task_data.get("knowledge_type", "general")
+        if not file_path:
+            raise ValueError("知识库任务缺少文件路径")
+
+        # Chroma 和 Ollama 客户端是同步调用，放到工作线程避免阻塞 RabbitMQ 事件循环。
+        split_count = await asyncio.to_thread(
+            process_and_store_file,
+            file_path,
+            user_id,
+            knowledge_type,
+        )
+    except Exception:
+        logger.exception("知识库任务处理失败，消息将被拒绝且不重新入队")
+        if not message.processed:
+            await message.reject(requeue=False)
+        return
+
+    await message.ack()
+    logger.info(
+        "知识库任务处理完成：用户=%s，分类=%s，文本块=%s",
+        user_id,
+        knowledge_type,
+        split_count,
+    )
 
 
 async def main():
     connection = await aio_pika.connect_robust(RABBITMQ_URL)
-    channel = await connection.channel()
+    async with connection:
+        channel = await connection.channel()
 
-    await channel.set_qos(prefetch_count=1)  # 设置数据取值的频次，每次拿取一条数据
+        await channel.set_qos(prefetch_count=1)  # 设置数据取值的频次，每次拿取一条数据
 
-    queue = await channel.declare_queue(settings.QUEUE_NAME, durable=True)  # 根据序列名连接到 rabbitMQ 序列
+        queue = await channel.declare_queue(settings.QUEUE_NAME, durable=True)  # 根据序列名连接到 rabbitMQ 序列
 
-    # 通过执行函数来消费序列
-    await queue.consume(process_message)
+        # 通过执行函数来消费序列
+        await queue.consume(process_message)
+        logger.info("知识库任务消费者已启动，队列=%s", settings.QUEUE_NAME)
 
-    # 控制消费者一直监听等待
-    await asyncio.Future()
+        # 控制消费者一直监听等待
+        await asyncio.Future()
 
 
 if __name__ == "__main__":   # 入口
@@ -56,4 +86,7 @@ if __name__ == "__main__":   # 入口
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-    asyncio.run(main())   # 异步的运行这个 main() 函数
+    try:
+        asyncio.run(main())   # 异步的运行这个 main() 函数
+    except KeyboardInterrupt:
+        print("知识库任务消费者已停止。")

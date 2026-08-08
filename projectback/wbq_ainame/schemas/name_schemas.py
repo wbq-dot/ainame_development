@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field,model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Annotated, List,Literal
 
 # 大模型输出的结构化模版
@@ -40,4 +40,12 @@ class NameIn(BaseModel):
 class FeedbackIn(BaseModel):
     thread_id: str = Field(..., description="前端回传的会话ID")
     category: Annotated[CategoryLiteral, Field("人名")]
-    feedback: str = Field(..., description="用户的修改意见")
+    feedback: str = Field(..., min_length=1, max_length=500, description="用户的修改意见")
+
+    @field_validator("feedback")
+    @classmethod
+    def validate_feedback(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("请输入调整意见")
+        return value

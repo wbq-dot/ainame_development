@@ -90,7 +90,7 @@ export function request({ url, method = 'GET', data, auth = false, header = {}, 
   })
 }
 
-export function upload({ url, filePath, name = 'file', auth = true, retried = false }) {
+export function upload({ url, filePath, name = 'file', formData = {}, auth = true, retried = false }) {
   return new Promise((resolve, reject) => {
     const token = getAccessToken()
     if (auth && !token) {
@@ -101,6 +101,7 @@ export function upload({ url, filePath, name = 'file', auth = true, retried = fa
       url: `${getApiBaseUrl()}${url}`,
       filePath,
       name,
+      formData,
       timeout: 180000,
       header: auth ? { Authorization: `Bearer ${token}` } : {},
       success: async (res) => {
@@ -118,7 +119,7 @@ export function upload({ url, filePath, name = 'file', auth = true, retried = fa
         if (auth && !retried && res.statusCode === 401 && getRefreshToken()) {
           try {
             await refreshAccessToken()
-            resolve(await upload({ url, filePath, name, auth, retried: true }))
+            resolve(await upload({ url, filePath, name, formData, auth, retried: true }))
             return
           } catch (error) {
             clearLogin()

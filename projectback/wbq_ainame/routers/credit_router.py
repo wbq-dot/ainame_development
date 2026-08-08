@@ -16,5 +16,9 @@ router = APIRouter(prefix="/credit")
 async def get_credit_balance(user_id: int=Depends(auth_handler.auth_access_dependency),session:AsyncSession=Depends(get_session)):
     # 去账户表，查询自己有几次起名的余额
     creditRepository = CreditRepository(session)
-    balance = await creditRepository.get_balance(user_id)
-    return CreditBalanceOut(balance=balance)     # {"balance":"value"}
+    name_balance, logo_balance = await creditRepository.get_balances(user_id)
+    return CreditBalanceOut(
+        balance=name_balance,
+        name_balance=name_balance,
+        logo_balance=logo_balance,
+    )

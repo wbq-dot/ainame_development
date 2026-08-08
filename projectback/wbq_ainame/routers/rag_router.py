@@ -3,8 +3,9 @@ import re
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from core.authtools import AuthHandler
+from core.rag_service import KNOWLEDGE_TYPES
 import aio_pika
 import json
 import settings
@@ -35,7 +36,11 @@ async def send_to_queue(message_dict: dict):
         # 上传 json 到 rabbitMQ
         await channel.default_exchange.publish(
             # 将 json 信息传递到 rabbitMQ
-            aio_pika.Message(body=message_body),
+            aio_pika.Message(
+                body=message_body,
+                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                content_type="application/json",
+            ),
             # 传入声明的队列名，将 json 放到那个队列中
             routing_key=queue.name
         )
@@ -44,7 +49,14 @@ async def send_to_queue(message_dict: dict):
 
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...),
+                      knowledge_type: str = Form("general"),
                       user_id:int=Depends(auth_handler.auth_access_dependency)):
+    knowledge_type = knowledge_type.strip().lower()
+    if knowledge_type not in KNOWLEDGE_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="知识类型必须是通用、人名、企业名或宠物名",
+        )
     original_name = file.filename or "unnamed"
     safe_name = re.split(r"[/\\]", original_name)[-1]
     safe_name = re.sub(r"[^\w.\-\u4e00-\u9fff]", "_", safe_name)
@@ -76,6 +88,7 @@ async def upload_file(file: UploadFile = File(...),
     task_message = {
         "user_id": user_id,
         "file_path": str(file_path),
+        "knowledge_type": knowledge_type,
     }
     try:
         await send_to_queue(task_message)
@@ -83,5 +96,11 @@ async def upload_file(file: UploadFile = File(...),
         file_path.unlink(missing_ok=True)
         raise HTTPException(status_code=503, detail="知识库任务队列暂时不可用") from exc
 
+    type_labels = {
+        "general": "通用",
+        "human": "人名",
+        "company": "企业名",
+        "pet": "宠物名",
+    }
     return {"result": "success",
-        "message": f"文件 {safe_name} 上传成功！后台正在为您构建专属知识库，请稍候测试起名功能。"}
+        "message": f"文件 {safe_name} 已作为{type_labels[knowledge_type]}资料上传！后台正在构建专属知识库。"}

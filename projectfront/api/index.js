@@ -20,7 +20,11 @@ export const api = {
     auth: true
   }),
 
-  uploadKnowledge: (filePath) => upload({ url: '/knowledge/upload', filePath }),
+  uploadKnowledge: (filePath, knowledgeType = 'general') => upload({
+    url: '/knowledge/upload',
+    filePath,
+    formData: { knowledge_type: knowledgeType }
+  }),
   generateLogo: (data) => request({ url: '/logos/generate', method: 'POST', data, auth: true }),
 
   getAdminUsers: ({ page = 1, pageSize = 20, keyword = '', status = '' }) => {

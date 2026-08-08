@@ -1,2 +1,23 @@
 .env
 **/.env
+
+# Python runtime files
+**/__pycache__/
+*.py[cod]
+
+# IDE settings
+**/.idea/
+
+# Runtime data and user uploads
+projectback/wbq_ainame/chroma_rag_db/
+projectback/wbq_ainame/uploader/
+projectback/wbq_ainame/static/logos/
+
+# Local API requests may contain passwords or JWTs
+projectback/wbq_ainame/test_main.http
+
+# Local-only account fixture utility
+projectback/wbq_ainame/manage_test_users.py
+
+# UniApp build output
+projectfront/dist/

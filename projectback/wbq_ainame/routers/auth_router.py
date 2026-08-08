@@ -67,14 +67,23 @@ async def register(data:RegisterIn,  # basemodel 定义传入数据的格式并�
     user_create = UserCreateSchema(email=data.email,password=data.password, username=data.username)
     user:User = await user_repo.create(user_create)   # 直接返回 实例化的对象
 
-    #5. 创建起名次数的账户，并赠送3次
+    #5. 创建独立次数账户，赠送3次起名和1次 Logo
     credit_repository = CreditRepository(session)
-    credit = await credit_repository.create_register_credit(user_id=user.id, gift_count=3)
+    credit = await credit_repository.create_register_credit(
+        user_id=user.id,
+        gift_count=3,
+        logo_gift_count=1,
+    )
 
     #6. 直接删除验证码数据
     await redis.delete(redis_key)
 
-    return {"messages":f"恭喜您注册成功！！ \n 同时获得{credit.balance}次起名机会 ！！"}
+    return {
+        "messages": (
+            f"恭喜您注册成功！同时获得{credit.balance}次起名机会"
+            f"和{credit.logo_balance}次Logo生成机会！"
+        )
+    }
 
 
 from core.authtools import AuthHandler

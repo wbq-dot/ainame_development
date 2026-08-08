@@ -41,9 +41,12 @@
       </view>
 
       <view class="credit-grid">
-        <view class="credit-item"><text>{{ user.balance }}</text><view>当前次数</view></view>
-        <view class="credit-item"><text>{{ user.total_used }}</text><view>累计使用</view></view>
-        <view class="credit-item"><text>{{ user.total_recharge }}</text><view>累计充值</view></view>
+        <view class="credit-item"><text>{{ user.balance }}</text><view>起名余额</view></view>
+        <view class="credit-item"><text>{{ user.total_used }}</text><view>起名使用</view></view>
+        <view class="credit-item"><text>{{ user.total_recharge }}</text><view>起名充值</view></view>
+        <view class="credit-item"><text>{{ user.logo_balance }}</text><view>Logo 余额</view></view>
+        <view class="credit-item"><text>{{ user.logo_total_used }}</text><view>Logo 使用</view></view>
+        <view class="credit-item"><text>{{ user.logo_total_recharge }}</text><view>Logo 充值</view></view>
       </view>
 
       <view class="time-line">
@@ -268,8 +271,8 @@ export default {
 .user-email { margin-top: 6rpx; overflow: hidden; color: #737e93; font-size: 22rpx; text-overflow: ellipsis; white-space: nowrap; }
 .user-id { margin-top: 4rpx; color: #a0a8b7; font-size: 18rpx; }
 .credit-grid { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 22rpx; padding: 20rpx 0; background: #f6f7fa; border-radius: 18rpx; }
-.credit-item { color: #8c95a6; border-right: 1rpx solid #e3e6ec; font-size: 18rpx; text-align: center; }
-.credit-item:last-child { border-right: 0; }
+.credit-item { padding: 10rpx 0; color: #8c95a6; border-right: 1rpx solid #e3e6ec; font-size: 18rpx; text-align: center; }
+.credit-item:nth-child(3n) { border-right: 0; }
 .credit-item text { display: block; margin-bottom: 4rpx; color: #30374c; font-size: 28rpx; font-weight: 800; }
 .time-line { display: flex; flex-wrap: wrap; gap: 8rpx 20rpx; margin-top: 17rpx; color: #969faf; font-size: 18rpx; }
 .action-row { display: flex; gap: 14rpx; margin-top: 22rpx; }

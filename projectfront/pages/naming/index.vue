@@ -24,8 +24,8 @@
           <text class="field-label">起名类型</text>
           <view class="type-tabs">
             <view v-for="item in categories" :key="item.value" class="type-tab" :class="{ active: form.category === item.value }" @click="form.category = item.value">
-              <text class="type-icon">{{ item.icon }}</text>
-              <text>{{ item.label }}</text>
+              <view class="type-icon-wrap"><text class="type-icon">{{ item.icon }}</text></view>
+              <text class="type-label">{{ item.label }}</text>
             </view>
           </view>
         </view>
@@ -72,13 +72,19 @@
             <view class="section-title">本轮候选</view>
             <view class="thread-id">会话 {{ threadId }}</view>
           </view>
-          <view class="round-badge">{{ results.length }} 个</view>
+          <view class="result-actions">
+            <view class="round-badge">{{ results.length }} 个</view>
+            <view class="copy-all-btn" @click="copyAllNames">复制全部</view>
+          </view>
         </view>
 
         <view v-for="(item, index) in results" :key="`${item.name}-${index}`" class="name-card">
           <view class="name-head">
-            <view class="rank">{{ String(index + 1).padStart(2, '0') }}</view>
-            <view class="name-text">{{ item.name }}</view>
+            <view class="name-title-wrap">
+              <view class="rank">{{ String(index + 1).padStart(2, '0') }}</view>
+              <view class="name-text">{{ item.name }}</view>
+            </view>
+            <view class="copy-name-btn" @click="copyName(item.name)">复制名字</view>
           </view>
           <view class="info-block">
             <text class="info-label">出处</text>
@@ -97,8 +103,12 @@
         <view class="card feedback-card">
           <view class="card-title">继续调整这组名字</view>
           <view class="card-note">说出喜欢或不满意的部分，后端会沿用本次会话继续生成。</view>
-          <textarea v-model.trim="feedback" class="field-textarea feedback-input" maxlength="500" placeholder="例如：保留第一个名字，其余名字希望更简洁现代" />
-          <button class="secondary-btn btn-gap" :loading="feedbackLoading" :disabled="feedbackLoading || !feedback" @click="submitFeedback">按意见重新生成</button>
+          <view class="feedback-label">调整意见</view>
+          <textarea v-model="feedback" class="field-textarea feedback-input" maxlength="500" placeholder="请在这里输入，例如：保留第一个名字，其余名字希望更简洁现代" />
+          <view class="feedback-status" :class="{ ready: canSubmitFeedback }">
+            {{ canSubmitFeedback ? `已输入 ${feedback.trim().length} 个字，可以提交` : '请先在输入框中填写真实的调整意见' }}
+          </view>
+          <button class="secondary-btn btn-gap" :loading="feedbackLoading" :disabled="feedbackLoading || !canSubmitFeedback" @click="submitFeedback">按意见重新生成</button>
         </view>
       </view>
     </template>
@@ -108,6 +118,7 @@
 <script>
 import { api } from '../../api'
 import { getAccessToken } from '../../utils/auth'
+import { saveNamingHistory } from '../../utils/history'
 
 export default {
   data() {
@@ -121,9 +132,9 @@ export default {
       results: [],
       excludeText: '',
       categories: [
-        { value: '人名', label: '人名', icon: '人' },
-        { value: '企业名', label: '企业', icon: '企' },
-        { value: '宠物名', label: '宠物', icon: '宠' }
+        { value: '人名', label: '人名', icon: '👤' },
+        { value: '企业名', label: '企业', icon: '🏢' },
+        { value: '宠物名', label: '宠物', icon: '🐾' }
       ],
       genders: ['不限', '男', '女'],
       lengths: ['不限', '一字', '两字', '三字', '四字'],
@@ -137,6 +148,9 @@ export default {
     }
   },
   computed: {
+    canSubmitFeedback() {
+      return Boolean(this.feedback.trim())
+    },
     requirementPlaceholder() {
       return {
         '人名': '例如：希望温润大方，有山水意象，参考诗经楚辞',
@@ -154,7 +168,7 @@ export default {
     async loadBalance() {
       try {
         const data = await api.getBalance()
-        this.balance = data.balance
+        this.balance = data.name_balance ?? data.balance ?? 0
       } catch (error) {
         this.loggedIn = false
         uni.showToast({ title: error.message, icon: 'none' })
@@ -180,6 +194,7 @@ export default {
         this.threadId = data.thread_id
         this.results = data.names || []
         this.feedback = ''
+        this.saveCurrentHistory()
         await this.loadBalance()
         uni.pageScrollTo({ selector: '.result-section', duration: 350 })
       } catch (error) {
@@ -189,15 +204,21 @@ export default {
       }
     },
     async submitFeedback() {
+      const feedback = this.feedback.trim()
+      if (!feedback) {
+        uni.showToast({ title: '请先输入调整意见', icon: 'none' })
+        return
+      }
       this.feedbackLoading = true
       try {
         const data = await api.feedbackNames({
           thread_id: this.threadId,
           category: this.form.category,
-          feedback: this.feedback
+          feedback
         })
         this.results = data.names || []
         this.feedback = ''
+        this.saveCurrentHistory()
         await this.loadBalance()
         uni.showToast({ title: '已按意见更新', icon: 'success' })
       } catch (error) {
@@ -205,6 +226,29 @@ export default {
       } finally {
         this.feedbackLoading = false
       }
+    },
+    saveCurrentHistory() {
+      if (!this.threadId || !this.results.length) return
+      saveNamingHistory({
+        threadId: this.threadId,
+        category: this.form.category,
+        requirement: this.form.other,
+        names: this.results
+      })
+    },
+    copyName(name) {
+      this.copyText(name, '名字已复制')
+    },
+    copyAllNames() {
+      const content = this.results.map((item, index) => `${index + 1}. ${item.name}`).join('\n')
+      this.copyText(content, '全部名字已复制')
+    },
+    copyText(content, successTitle) {
+      uni.setClipboardData({
+        data: content,
+        success: () => uni.showToast({ title: successTitle, icon: 'success' }),
+        fail: () => uni.showToast({ title: '复制失败，请长按名字复制', icon: 'none' })
+      })
     }
   }
 }
@@ -219,17 +263,24 @@ export default {
 .callout-icon { display: flex; align-items: center; justify-content: center; width: 90rpx; height: 90rpx; margin: 0 auto 24rpx; color: #6257e8; background: #ebe9ff; border-radius: 26rpx; font-size: 36rpx; font-weight: 800; }
 .first-field { margin-top: 0; }
 .type-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; }
-.type-tab { display: flex; align-items: center; justify-content: center; gap: 9rpx; height: 86rpx; color: #6f7788; background: #f2f4f8; border: 2rpx solid transparent; border-radius: 20rpx; font-size: 26rpx; font-weight: 650; }
+.type-tab { display: flex; align-items: center; justify-content: center; gap: 12rpx; height: 92rpx; color: #6f7788; background: #f2f4f8; border: 2rpx solid transparent; border-radius: 20rpx; font-size: 25rpx; font-weight: 650; }
 .type-tab.active { color: #4d42be; background: #eeecff; border-color: #bdb5ff; }
-.type-icon { font-weight: 850; }
+.type-icon-wrap { display: flex; align-items: center; justify-content: center; width: 48rpx; height: 48rpx; background: #fff; border-radius: 15rpx; box-shadow: 0 5rpx 14rpx rgba(64, 56, 147, 0.08); }
+.type-icon { font-size: 27rpx; line-height: 1; }
+.type-label { white-space: nowrap; }
+.type-tab.active .type-icon-wrap { background: #fff; box-shadow: 0 6rpx 16rpx rgba(77, 66, 190, 0.14); }
 .counter { margin-top: 7rpx; color: #9aa2b1; font-size: 20rpx; text-align: right; }
 .result-section { margin-top: 42rpx; }
 .thread-id { max-width: 500rpx; margin-top: 7rpx; overflow: hidden; color: #9aa2b1; font-size: 19rpx; text-overflow: ellipsis; white-space: nowrap; }
 .round-badge { padding: 10rpx 18rpx; color: #5a4fcb; background: #ebe9ff; border-radius: 999rpx; font-size: 22rpx; }
+.result-actions { display: flex; align-items: center; gap: 12rpx; }
+.copy-all-btn { padding: 10rpx 17rpx; color: #fff; background: #6257e8; border-radius: 999rpx; font-size: 20rpx; }
 .name-card { margin-top: 20rpx; padding: 30rpx; background: #fff; border-left: 7rpx solid #7164e9; border-radius: 25rpx; box-shadow: 0 14rpx 38rpx rgba(36, 55, 86, 0.06); }
-.name-head { display: flex; align-items: center; gap: 18rpx; }
+.name-head { display: flex; align-items: center; justify-content: space-between; gap: 18rpx; }
+.name-title-wrap { display: flex; align-items: center; min-width: 0; gap: 18rpx; }
 .rank { color: #aaa5dc; font-size: 20rpx; font-weight: 800; letter-spacing: 2rpx; }
 .name-text { color: #252052; font-size: 39rpx; font-weight: 850; letter-spacing: 4rpx; }
+.copy-name-btn { flex: 0 0 auto; padding: 10rpx 16rpx; color: #5a4fcb; background: #eeecff; border-radius: 999rpx; font-size: 20rpx; }
 .info-block { display: flex; gap: 20rpx; margin-top: 22rpx; }
 .info-label { flex: 0 0 58rpx; color: #8b95a9; font-size: 22rpx; }
 .info-value { flex: 1; color: #4c576c; font-size: 24rpx; line-height: 1.65; }
@@ -237,5 +288,9 @@ export default {
 .domain-name { color: #4b43a8; font-size: 23rpx; font-weight: 700; }
 .domain-status { font-size: 21rpx; }
 .feedback-card { margin-top: 26rpx; background: linear-gradient(145deg, #fff, #f2f0ff); }
-.feedback-input { margin-top: 22rpx; background: #fff; }
+.feedback-label { margin-top: 22rpx; color: #455066; font-size: 22rpx; font-weight: 700; }
+.feedback-input { margin-top: 10rpx; background: #fff; border: 2rpx solid #e4e6ee; }
+.feedback-input:focus { border-color: #9d93f4; }
+.feedback-status { margin-top: 10rpx; color: #9aa2b1; font-size: 20rpx; }
+.feedback-status.ready { color: #3e9b75; }
 </style>

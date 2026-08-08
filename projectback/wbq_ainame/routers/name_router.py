@@ -10,7 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from repository.credit_repo import CreditRepository
 from core.workflow import generate_naming
 from schemas.name_schemas import FeedbackIn
-from core.workflow import feedback_naming
+from core.workflow import (
+    WorkflowSessionAccessError,
+    WorkflowSessionCategoryError,
+    WorkflowSessionNotFoundError,
+    feedback_naming,
+)
+from core.rag_service import KnowledgeRetrievalUnavailableError
 
 # 进行JWT 的校验
 auth_handler = AuthHandler()
@@ -29,7 +35,10 @@ async def get_names(data:NameIn,user_id:int = Depends(auth_handler.auth_access_d
             raise HTTPException(status_code=400, detail="余额不足，请充值后使用")
 
         # 2.调用起名接口
-        name_result = await generate_naming(data,user_id)   # 加上 user_id 传入到后续的 rag 个人知识库的调用接口使用
+        try:
+            name_result = await generate_naming(data,user_id)   # 加上 user_id 传入到后续的 rag 个人知识库的调用接口使用
+        except KnowledgeRetrievalUnavailableError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
         # 3.起名后，在账户中次数减1，日志中添加一条数据，消费成功
         await creditRepository.consume_name_credit(user_id)
@@ -37,12 +46,9 @@ async def get_names(data:NameIn,user_id:int = Depends(auth_handler.auth_access_d
         thread_id = name_result.get("thread_id")   # 记忆的 id
         final_output = name_result.get("final_output")  # 起名结果
 
-        try:
-            # print(name_result)         # {'thread_id': 'e1d82af2-2fe5-4ffc-8e27-9a19ad0cc1c1', 'final_output': {'thread_id': 'thread_123', 'names': [{'name': '熠芯辉', 'reference': '《诗经·豳风》"熠熠宵行"，熠为火部，光芒闪耀；芯为芯片之核；辉为光辉',...}]}} 内部的结构，跟我们返回的 NameResultSchema 类型不一致，所有要重新整合
-            return NameResultSchema(thread_id=thread_id, names=final_output["names"])
-
-        except Exception as e:
-            print(e)
+        if not final_output or "names" not in final_output:
+            raise HTTPException(status_code=502, detail="模型没有返回有效的候选名字")
+        return NameResultSchema(thread_id=thread_id, names=final_output["names"])
 
 
 
@@ -85,7 +91,16 @@ async def take_names_feedback(data:FeedbackIn    # 拿到客户的反馈意见�
             raise HTTPException(status_code=400, detail="余额不足，请充值后使用")
 
       # 2.调用微调起名接口
-      name_result = await feedback_naming(data, user_id)
+      try:
+          name_result = await feedback_naming(data, user_id)
+      except WorkflowSessionNotFoundError as exc:
+          raise HTTPException(status_code=404, detail=str(exc)) from exc
+      except WorkflowSessionAccessError as exc:
+          raise HTTPException(status_code=403, detail=str(exc)) from exc
+      except WorkflowSessionCategoryError as exc:
+          raise HTTPException(status_code=400, detail=str(exc)) from exc
+      except KnowledgeRetrievalUnavailableError as exc:
+          raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
       # 3.起名后，在账户中次数减1，日志中添加一条数据，消费成功
@@ -95,8 +110,6 @@ async def take_names_feedback(data:FeedbackIn    # 拿到客户的反馈意见�
       thread_id = name_result.get("thread_id")
       final_output = name_result.get("final_output")
 
-      try:
-          return NameResultSchema(thread_id=thread_id, names=final_output["names"])
-
-      except Exception as e:
-          print(e)
+      if not final_output or "names" not in final_output:
+          raise HTTPException(status_code=502, detail="模型没有返回有效的候选名字")
+      return NameResultSchema(thread_id=thread_id, names=final_output["names"])

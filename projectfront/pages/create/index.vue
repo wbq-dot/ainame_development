@@ -1,227 +1,140 @@
 <template>
-  <view class="page-shell create-page">
+  <view class="page-shell create-hub">
     <view class="page-title">创作工具</view>
-    <view class="page-subtitle">上传你的品牌规则，或为企业生成一枚专属 Logo。</view>
+    <view class="page-subtitle">每项工具拥有独立空间，操作更专注，结果更清晰。</view>
 
-    <view v-if="!loggedIn" class="card login-callout">
-      <view class="login-icon">钥</view>
-      <view class="card-title">登录后使用创作工具</view>
-      <view class="card-note">专属知识库与 Logo 生成都会使用你的登录身份，请先登录或注册。</view>
-      <button class="primary-btn btn-gap" @click="goLogin">登录 / 注册</button>
+    <view class="hero-art">
+      <view class="hero-copy">
+        <view class="hero-kicker">CREATIVE LAB</view>
+        <view class="hero-title">把规则变成灵感<br />把灵感变成标识</view>
+        <view class="hero-note">知识沉淀 · 品牌视觉</view>
+      </view>
+      <view class="art-board">
+        <view class="art-book"><text></text><text></text><text></text></view>
+        <view class="art-spark">✦</view>
+        <view class="art-logo">A</view>
+        <view class="art-dot dot-one"></view>
+        <view class="art-dot dot-two"></view>
+      </view>
     </view>
 
-    <template v-else>
-      <view class="mode-switch">
-        <view class="mode-item" :class="{ active: mode === 'knowledge' }" @click="mode = 'knowledge'">知识库</view>
-        <view class="mode-item" :class="{ active: mode === 'logo' }" @click="mode = 'logo'">Logo 生成</view>
-      </view>
-
-    <view v-if="mode === 'knowledge'" class="card tool-card">
-      <view class="tool-visual knowledge-visual">
-        <view class="visual-icon">文</view>
-        <view>
-          <view class="card-title">专属知识库</view>
-          <view class="card-note">文件将由后端异步切分并存入你的私人向量库。</view>
+    <view class="tool-list">
+      <view class="tool-entry knowledge-entry" @click="openTool('/pages/knowledge/index')">
+        <view class="entry-art knowledge-art">
+          <view class="folder-back"></view>
+          <view class="folder-front"><view class="folder-line"></view><view class="folder-line short"></view></view>
+          <view class="entry-badge">资料</view>
+        </view>
+        <view class="entry-content">
+          <view class="entry-eyebrow">KNOWLEDGE BASE</view>
+          <view class="entry-title">专属知识库</view>
+          <view class="entry-desc">上传 PDF / TXT，让人名、企业名和宠物名都参考你的专属资料。</view>
+          <view class="entry-link">进入知识库 <text>→</text></view>
         </view>
       </view>
 
-      <view class="upload-zone" @click="chooseFile">
-        <view class="upload-plus">＋</view>
-        <view v-if="selectedFile" class="selected-name">{{ selectedFile.name }}</view>
-        <view v-else class="upload-title">点击选择 PDF 或 TXT</view>
-        <view class="upload-note">支持 PDF/TXT，单个文件最大 10MB</view>
-      </view>
-
-      <view class="notice">
-        <text class="notice-mark">i</text>
-        <text>上传成功只表示任务已进入 RabbitMQ；向量化是否完成需查看后端 worker 日志。</text>
-      </view>
-      <button class="primary-btn btn-gap" :loading="uploading" :disabled="uploading || !selectedFile" @click="confirmUpload">
-        上传并构建知识库
-      </button>
-      <view v-if="uploadResult" class="success-panel">{{ uploadResult }}</view>
-    </view>
-
-    <view v-else class="card tool-card">
-      <view class="tool-visual logo-visual">
-        <view class="visual-icon">图</view>
-        <view>
-          <view class="card-title">企业 Logo 生成</view>
-          <view class="card-note">调用后端已配置的通义万相模型，并保存到静态目录。</view>
+      <view class="tool-entry logo-entry" @click="openTool('/pages/logo/index')">
+        <view class="entry-content">
+          <view class="entry-eyebrow">LOGO STUDIO</view>
+          <view class="entry-title">企业 Logo 生成</view>
+          <view class="entry-desc">输入企业名称与风格，让模型生成一枚独立品牌标识。</view>
+          <view class="entry-link">进入 Logo 工作室 <text>→</text></view>
         </view>
-      </view>
-
-      <view class="field">
-        <text class="field-label">企业名称</text>
-        <input v-model.trim="logoForm.company_name" class="field-input" maxlength="50" placeholder="例如：青衍科技" />
-      </view>
-      <view class="field">
-        <text class="field-label">风格要求（选填）</text>
-        <textarea v-model.trim="logoForm.style_feedback" class="field-textarea" maxlength="300" placeholder="例如：蓝紫渐变、科技感、图形简洁，不要文字" />
-      </view>
-      <view class="notice warning">
-        <text class="notice-mark">!</text>
-        <text>此操作会调用付费或计量的外部模型。点击下方按钮后会先让你确认。</text>
-      </view>
-      <button class="primary-btn btn-gap" :loading="logoLoading" :disabled="logoLoading || !logoForm.company_name" @click="confirmGenerateLogo">
-        生成 Logo
-      </button>
-
-      <view v-if="logoResult" class="logo-result">
-        <image v-if="logoResult.logo_url" class="logo-image" :src="logoResult.logo_url" mode="aspectFit" @click="previewLogo" />
-        <view v-else class="logo-empty">没有返回图片</view>
-        <view class="logo-status">{{ logoResult.logo_status }}</view>
-        <view class="prompt-box">
-          <view class="prompt-title">实际生成提示词</view>
-          <view class="prompt-content">{{ logoResult.logo_prompt }}</view>
+        <view class="entry-art logo-art">
+          <view class="logo-ring ring-one"></view>
+          <view class="logo-ring ring-two"></view>
+          <view class="logo-letter">Z</view>
+          <view class="logo-star">✦</view>
         </view>
       </view>
     </view>
-    </template>
+
+    <view v-if="!loggedIn" class="login-tip" @click="goLogin">
+      <view class="tip-icon">钥</view>
+      <view class="tip-main"><view class="tip-title">登录后即可使用</view><view class="tip-desc">知识库和 Logo 内容都会归入你的个人账号</view></view>
+      <view class="tip-arrow">›</view>
+    </view>
   </view>
 </template>
 
 <script>
-import { api } from '../../api'
-import { getAccessToken, requireLogin } from '../../utils/auth'
+import { getAccessToken } from '../../utils/auth'
 
 export default {
   data() {
-    return {
-      loggedIn: false,
-      mode: 'knowledge',
-      selectedFile: null,
-      uploading: false,
-      uploadResult: '',
-      logoLoading: false,
-      logoForm: { company_name: '', style_feedback: '' },
-      logoResult: null
-    }
+    return { loggedIn: false }
   },
   onShow() {
     this.loggedIn = Boolean(getAccessToken())
-    const defaultMode = uni.getStorageSync('create_default_mode')
-    if (defaultMode === 'knowledge' || defaultMode === 'logo') this.mode = defaultMode
+    const target = uni.getStorageSync('create_default_mode')
     uni.removeStorageSync('create_default_mode')
+    if (this.loggedIn && target === 'knowledge') uni.navigateTo({ url: '/pages/knowledge/index' })
+    if (this.loggedIn && target === 'logo') uni.navigateTo({ url: '/pages/logo/index' })
   },
   methods: {
-    goLogin() {
-      uni.navigateTo({ url: '/pages/auth/login' })
-    },
-    chooseFile() {
-      // #ifdef H5
-      uni.chooseFile({
-        count: 1,
-        extension: ['.pdf', '.txt'],
-        success: (res) => this.acceptFile(res.tempFiles[0], res.tempFilePaths[0])
-      })
-      // #endif
-
-      // #ifdef MP-WEIXIN
-      uni.chooseMessageFile({
-        count: 1,
-        type: 'file',
-        extension: ['pdf', 'txt'],
-        success: (res) => this.acceptFile(res.tempFiles[0], res.tempFiles[0].path)
-      })
-      // #endif
-
-      // #ifdef APP-PLUS
-      uni.showModal({
-        title: '当前测试方式不支持',
-        content: '本次最小版本请先在 HBuilderX 的 H5 浏览器运行中测试文件上传。',
-        showCancel: false
-      })
-      // #endif
-    },
-    acceptFile(file, path) {
-      const name = file.name || path.split('/').pop()
-      if (!/\.(pdf|txt)$/i.test(name)) {
-        uni.showToast({ title: '只能选择 PDF 或 TXT 文件', icon: 'none' })
+    goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) },
+    openTool(url) {
+      if (!this.loggedIn) {
+        uni.showModal({
+          title: '登录后使用',
+          content: '专属知识库和 Logo 作品需要保存到个人账号，请先登录。',
+          confirmText: '去登录',
+          success: ({ confirm }) => { if (confirm) this.goLogin() }
+        })
         return
       }
-      this.selectedFile = { name, path: file.path || path }
-      this.uploadResult = ''
-    },
-    confirmUpload() {
-      if (!requireLogin()) return
-      uni.showModal({
-        title: '确认上传文件',
-        content: `将上传“${this.selectedFile.name}”到后端，并把任务发送到 RabbitMQ 构建你的私人知识库。是否继续？`,
-        confirmText: '确认上传',
-        success: ({ confirm }) => {
-          if (confirm) this.uploadKnowledge()
-        }
-      })
-    },
-    async uploadKnowledge() {
-      this.uploading = true
-      try {
-        const data = await api.uploadKnowledge(this.selectedFile.path)
-        this.uploadResult = data.message || '上传成功，后台正在处理。'
-        uni.showToast({ title: '上传成功', icon: 'success' })
-      } catch (error) {
-        uni.showToast({ title: error.message, icon: 'none', duration: 3200 })
-      } finally {
-        this.uploading = false
-      }
-    },
-    confirmGenerateLogo() {
-      if (!requireLogin()) return
-      uni.showModal({
-        title: '确认调用图片模型',
-        content: `将使用企业名称“${this.logoForm.company_name}”调用后端图片模型，可能产生外部模型用量。是否继续？`,
-        confirmText: '确认生成',
-        success: ({ confirm }) => {
-          if (confirm) this.generateLogo()
-        }
-      })
-    },
-    async generateLogo() {
-      this.logoLoading = true
-      this.logoResult = null
-      try {
-        this.logoResult = await api.generateLogo(this.logoForm)
-        uni.showToast({ title: this.logoResult.logo_status, icon: this.logoResult.logo_url ? 'success' : 'none' })
-      } catch (error) {
-        uni.showToast({ title: error.message, icon: 'none', duration: 3200 })
-      } finally {
-        this.logoLoading = false
-      }
-    },
-    previewLogo() {
-      uni.previewImage({ urls: [this.logoResult.logo_url], current: this.logoResult.logo_url })
+      uni.navigateTo({ url })
     }
   }
 }
 </script>
 
 <style scoped>
-.create-page { background: radial-gradient(circle at 0 0, #e7f4ff 0, transparent 24%), #f5f7fb; }
-.login-callout { margin-top: 34rpx; padding: 52rpx 34rpx; text-align: center; }
-.login-icon { display: flex; align-items: center; justify-content: center; width: 90rpx; height: 90rpx; margin: 0 auto 24rpx; color: #6257e8; background: #ebe9ff; border-radius: 26rpx; font-size: 36rpx; font-weight: 800; }
-.mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8rpx; margin-top: 30rpx; padding: 8rpx; background: #e9ecf2; border-radius: 23rpx; }
-.mode-item { height: 76rpx; color: #778196; border-radius: 17rpx; font-size: 26rpx; font-weight: 700; line-height: 76rpx; text-align: center; }
-.mode-item.active { color: #4439b0; background: #fff; box-shadow: 0 8rpx 24rpx rgba(36, 55, 86, 0.08); }
-.tool-card { padding: 32rpx; }
-.tool-visual { display: flex; align-items: center; gap: 22rpx; padding: 23rpx; border-radius: 23rpx; }
-.knowledge-visual { background: linear-gradient(135deg, #e5f6ef, #effaf6); }
-.logo-visual { background: linear-gradient(135deg, #fff0df, #fff7ec); }
-.visual-icon { display: flex; align-items: center; justify-content: center; width: 75rpx; height: 75rpx; color: #4439a8; background: rgba(255, 255, 255, 0.86); border-radius: 20rpx; font-size: 29rpx; font-weight: 850; }
-.upload-zone { margin-top: 28rpx; padding: 52rpx 24rpx; background: #fafbfc; border: 3rpx dashed #cbd2df; border-radius: 24rpx; text-align: center; }
-.upload-plus { width: 72rpx; height: 72rpx; margin: 0 auto 18rpx; color: #6257e8; background: #ebe9ff; border-radius: 50%; font-size: 43rpx; line-height: 68rpx; }
-.upload-title, .selected-name { font-size: 27rpx; font-weight: 700; }
-.selected-name { color: #5046bd; word-break: break-all; }
-.upload-note { margin-top: 10rpx; color: #98a1b1; font-size: 21rpx; }
-.notice { display: flex; gap: 14rpx; margin-top: 24rpx; padding: 18rpx 20rpx; color: #547064; background: #eef8f4; border-radius: 17rpx; font-size: 22rpx; line-height: 1.55; }
-.notice.warning { color: #795c2f; background: #fff7e9; }
-.notice-mark { flex: 0 0 30rpx; font-weight: 850; }
-.success-panel { margin-top: 20rpx; padding: 20rpx; color: #19734b; background: #eaf8f1; border-radius: 17rpx; font-size: 23rpx; line-height: 1.6; }
-.logo-result { margin-top: 28rpx; }
-.logo-image, .logo-empty { width: 100%; height: 560rpx; background: #f4f5f8; border-radius: 25rpx; }
-.logo-empty { display: flex; align-items: center; justify-content: center; color: #9aa2b1; }
-.logo-status { margin-top: 16rpx; color: #5248ba; font-size: 25rpx; font-weight: 700; text-align: center; }
-.prompt-box { margin-top: 22rpx; padding: 22rpx; background: #f4f6fa; border-radius: 18rpx; }
-.prompt-title { font-size: 23rpx; font-weight: 700; }
-.prompt-content { margin-top: 10rpx; color: #6f788b; font-size: 21rpx; line-height: 1.65; white-space: pre-wrap; }
+.create-hub { overflow: hidden; background: radial-gradient(circle at 95% 3%, #efe9ff 0, transparent 26%), #f5f7fb; }
+.hero-art { position: relative; display: flex; min-height: 280rpx; margin-top: 30rpx; padding: 34rpx; overflow: hidden; color: #fff; background: linear-gradient(145deg, #252750, #5146b8 62%, #735edf); border-radius: 34rpx; box-shadow: 0 22rpx 50rpx rgba(70, 59, 164, .22); }
+.hero-copy { position: relative; z-index: 2; width: 62%; }
+.hero-kicker, .entry-eyebrow { font-size: 18rpx; font-weight: 800; letter-spacing: 3rpx; }
+.hero-kicker { color: #cfcaff; }
+.hero-title { margin-top: 18rpx; font-size: 38rpx; font-weight: 850; line-height: 1.45; }
+.hero-note { margin-top: 16rpx; color: #ddd9ff; font-size: 22rpx; }
+.art-board { position: absolute; top: 0; right: 0; width: 290rpx; height: 100%; }
+.art-book { position: absolute; right: 70rpx; bottom: 54rpx; width: 112rpx; height: 86rpx; padding: 22rpx 18rpx; background: #fff; border-radius: 12rpx 24rpx 24rpx 12rpx; box-shadow: -12rpx 16rpx 28rpx rgba(15, 14, 61, .2); transform: rotate(-9deg); }
+.art-book::before { position: absolute; top: 0; bottom: 0; left: 13rpx; width: 4rpx; content: ''; background: #f1b563; }
+.art-book text { display: block; width: 62rpx; height: 5rpx; margin-bottom: 9rpx; background: #c9c5e8; border-radius: 9rpx; }
+.art-logo { position: absolute; top: 43rpx; right: 29rpx; display: flex; align-items: center; justify-content: center; width: 102rpx; height: 102rpx; color: #5146b8; background: #f7c977; border-radius: 31rpx; box-shadow: 0 14rpx 30rpx rgba(18, 17, 65, .22); font-size: 55rpx; font-weight: 900; transform: rotate(10deg); }
+.art-spark { position: absolute; top: 30rpx; right: 155rpx; color: #fff; font-size: 38rpx; }
+.art-dot { position: absolute; border: 5rpx solid rgba(255,255,255,.4); border-radius: 50%; }
+.dot-one { right: 15rpx; bottom: 25rpx; width: 48rpx; height: 48rpx; }
+.dot-two { top: 25rpx; right: 8rpx; width: 20rpx; height: 20rpx; background: #77dec8; border: 0; }
+.tool-list { margin-top: 26rpx; }
+.tool-entry { display: flex; align-items: center; min-height: 260rpx; margin-top: 22rpx; padding: 28rpx; overflow: hidden; background: #fff; border-radius: 30rpx; box-shadow: 0 14rpx 38rpx rgba(36,55,86,.07); }
+.tool-entry:active { transform: scale(.99); }
+.entry-content { position: relative; z-index: 2; flex: 1; min-width: 0; }
+.entry-eyebrow { color: #8c83c8; }
+.entry-title { margin-top: 10rpx; color: #252452; font-size: 34rpx; font-weight: 850; }
+.entry-desc { margin-top: 12rpx; color: #7b8496; font-size: 22rpx; line-height: 1.65; }
+.entry-link { margin-top: 20rpx; color: #554bc2; font-size: 23rpx; font-weight: 760; }
+.entry-link text { margin-left: 8rpx; }
+.entry-art { position: relative; flex: 0 0 210rpx; height: 190rpx; }
+.knowledge-entry { background: linear-gradient(135deg, #fff, #effaf6); }
+.knowledge-art { margin-right: 18rpx; }
+.folder-back { position: absolute; top: 35rpx; left: 18rpx; width: 160rpx; height: 110rpx; background: #8ad7bc; border-radius: 18rpx 26rpx 26rpx 18rpx; transform: rotate(-7deg); }
+.folder-back::before { position: absolute; top: -20rpx; left: 14rpx; width: 68rpx; height: 30rpx; content: ''; background: #8ad7bc; border-radius: 13rpx 13rpx 0 0; }
+.folder-front { position: absolute; top: 61rpx; left: 34rpx; width: 158rpx; height: 108rpx; padding: 30rpx 24rpx; background: #e2fff5; border: 3rpx solid #53b997; border-radius: 18rpx 29rpx 29rpx 18rpx; box-shadow: 0 12rpx 26rpx rgba(54,145,114,.18); transform: rotate(4deg); }
+.folder-line { width: 88rpx; height: 8rpx; margin-bottom: 13rpx; background: #6ac4a6; border-radius: 8rpx; }
+.folder-line.short { width: 55rpx; }
+.entry-badge { position: absolute; top: 17rpx; right: 0; padding: 9rpx 15rpx; color: #26795f; background: #fff; border-radius: 999rpx; box-shadow: 0 8rpx 18rpx rgba(36,55,86,.1); font-size: 18rpx; font-weight: 800; }
+.logo-entry { background: linear-gradient(135deg, #fff9f0, #fff); }
+.logo-art { margin-left: 18rpx; }
+.logo-ring { position: absolute; border-radius: 50%; }
+.ring-one { top: 18rpx; right: 14rpx; width: 165rpx; height: 165rpx; background: linear-gradient(145deg, #ffcc82, #ec8a78); box-shadow: 0 17rpx 33rpx rgba(215,123,91,.2); }
+.ring-two { top: 45rpx; right: 42rpx; width: 108rpx; height: 108rpx; background: #fff8ed; }
+.logo-letter { position: absolute; top: 53rpx; right: 65rpx; color: #a64c67; font-size: 70rpx; font-weight: 900; transform: rotate(-8deg); }
+.logo-star { position: absolute; top: 7rpx; left: 21rpx; color: #704fce; font-size: 38rpx; }
+.login-tip { display: flex; align-items: center; margin-top: 24rpx; padding: 23rpx 25rpx; background: #ece9ff; border: 2rpx solid #ddd7ff; border-radius: 24rpx; }
+.tip-icon { display: flex; align-items: center; justify-content: center; width: 62rpx; height: 62rpx; color: #5e53c7; background: #fff; border-radius: 18rpx; font-weight: 850; }
+.tip-main { flex: 1; margin-left: 18rpx; }
+.tip-title { color: #423a93; font-size: 25rpx; font-weight: 780; }
+.tip-desc { margin-top: 4rpx; color: #8580a6; font-size: 19rpx; }
+.tip-arrow { color: #6257e8; font-size: 44rpx; }
 </style>

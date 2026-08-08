@@ -13,8 +13,24 @@
       "style": { "navigationBarTitleText": "创作工具" }
     },
     {
+      "path": "pages/knowledge/index",
+      "style": { "navigationBarTitleText": "专属知识库" }
+    },
+    {
+      "path": "pages/logo/index",
+      "style": { "navigationBarTitleText": "Logo 工作室" }
+    },
+    {
       "path": "pages/account/index",
       "style": { "navigationBarTitleText": "账户与套餐" }
+    },
+    {
+      "path": "pages/history/index",
+      "style": { "navigationBarTitleText": "创作记录" }
+    },
+    {
+      "path": "pages/settings/index",
+      "style": { "navigationBarTitleText": "设置与安全" }
     },
     {
       "path": "pages/auth/login",

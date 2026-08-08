@@ -38,6 +38,7 @@ session: AsyncSession = Depends(get_session)
         out_trade_no=order.order_no,
         subject=f"购买{package.name}",
         total_amount=str(order.amount),
+        timeout_express="1h",
         notify_url=get_notify_url(),
         return_url=get_return_url())
 
@@ -49,6 +50,7 @@ session: AsyncSession = Depends(get_session)
         order_no=order.order_no,
         amount=order.amount,
         credit_count=order.credit_count,
+        credit_type=order.credit_type,
         pay_url=pay_url)
 
 
@@ -229,7 +231,8 @@ async def pay_success(
            """
         # 7. 返回支付成功页面 True 修改成功   False  多次提交，不该我的购买次数
     if is_first_success:
-        message = f"支付成功，已为您增加 {order.credit_count} 次起名次数。"
+        credit_label = "Logo" if order.credit_type == "logo" else "起名"
+        message = f"支付成功，已为您增加 {order.credit_count} 次{credit_label}次数。"
     else:
         message = "该订单之前已经处理过，请不要重复刷新页面。"
 

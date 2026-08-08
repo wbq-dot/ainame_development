@@ -1,4 +1,5 @@
 from typing import TypedDict, List, Dict, Any
+import logging
 from langgraph.graph import StateGraph, END
 from langchain_deepseek import ChatDeepSeek
 from schemas.name_schemas import NameIn
@@ -15,6 +16,7 @@ import uuid
 
 # 读取项目根目录下的 .env 文件
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 
 # 1. 定义图的状态（State）传递结构，在流程里既作为输出结果也作为输入参数
@@ -29,6 +31,62 @@ class WorkflowState(TypedDict):
     final_output: Dict[str, Any] # 存放下游 Agent 生成的结构化数据，就是存放模型输出的起名结果
     history_names: str    # 之前的记忆历史
     feedback: str
+
+
+class WorkflowSessionNotFoundError(ValueError):
+    pass
+
+
+class WorkflowSessionAccessError(PermissionError):
+    pass
+
+
+class WorkflowSessionCategoryError(ValueError):
+    pass
+
+
+def _feedback_instruction(state: WorkflowState) -> str:
+    feedback = (state.get("feedback") or "").strip()
+    history_names = (state.get("history_names") or "").strip()
+    if not feedback or not history_names:
+        return ""
+    return f"""
+    【上一轮候选名字】
+    {history_names}
+    【用户本轮调整意见】
+    {feedback}
+    这是同一轮会话的继续调整。请结合上一轮候选，严格执行用户意见；明确要求保留的名字必须保留，其余候选再针对性优化。
+    """
+
+
+def _history_names(response: NameResultSchema) -> str:
+    return "\n".join(f"【{item.name}】寓意：{item.moral}" for item in response.names)
+
+
+def _knowledge_prompt(
+    user_id: int,
+    query: str,
+    focus: str,
+    knowledge_type: str,
+    fallback_query: str | None = None,
+) -> str:
+    """按当前起名类型检索用户私有知识库，并生成可安全拼入提示词的上下文。"""
+    rag_context = retrieve_user_knowledge(
+        query=query,
+        user_id=user_id,
+        knowledge_type=knowledge_type,
+        fallback_query=fallback_query,
+    )
+    if not rag_context:
+        return f"""
+    【专属知识库】本次没有检索到与{focus}足够相关的资料。
+    请直接根据用户要求创作，不要编造或声称引用了用户知识库。
+    """
+    return f"""
+    【用户专属知识库参考：{focus}】
+    {rag_context}
+    请优先遵守其中的命名规则、偏好、禁忌和背景信息；若与用户本次明确要求冲突，以本次要求为准。
+    """
 
 # 2. 初始化 DeepSeek 大模型
 llm = ChatDeepSeek(
@@ -58,37 +116,70 @@ async def supervisor_node(state: WorkflowState) -> Dict[str, Any]:
 # 人名节点
 async def human_naming_node(state: WorkflowState) -> Dict[str, Any]:
     """人名专家节点"""    # 给大模型看节点的提示词
+    exclude_text = "、".join(state["exclude"])
+    core_requirement = (state.get("other") or "").strip()
+    rag_prompt = await asyncio.to_thread(
+        _knowledge_prompt,
+        user_id=state["user_id"],
+        query=" ".join(
+            part
+            for part in [
+                "孩子起名",
+                core_requirement,
+                f"姓氏{state['surname']}" if state.get("surname") else "",
+                f"避讳{exclude_text}" if exclude_text else "",
+            ]
+            if part
+        ),
+        fallback_query=" ".join(
+            part
+            for part in [
+                core_requirement,
+                f"避讳{exclude_text}" if exclude_text else "",
+            ]
+            if part
+        ),
+        focus="人名命名",
+        knowledge_type="human",
+    )
     prompt = f"""你是一位精通汉语言文学与传统文化的命名专家。请为用户创作富有文化底蕴的人名。
     【姓氏】: {state['surname']}
     【性别倾向】: {state['gender']}
     【字数限制】: {state['length']}
     【其它具体要求】: {state['other']}
     【避讳排除字】: {'、'.join(state['exclude'])}
+    {rag_prompt}
+    {_feedback_instruction(state)}
     原则：平仄协调，优先从《诗经》《楚辞》或唐诗宋词中汲取灵感。请给出 5 个候选方案。"""  # 输入到大模型 ainvoke 中的信息
     response = await structured_llm.ainvoke(prompt)
-    return {"final_output": response.model_dump()}
+    return {
+        "final_output": response.model_dump(),
+        "history_names": _history_names(response),
+    }
 
 # 企业起名的节点
 async def company_naming_node(state: WorkflowState) -> Dict[str, Any]:
 
     """企业品牌节点"""
 
-    # 通过id 和 检索信息查找相似度高的数据
-    user_id = state['user_id']   # 得到用户的 id 号
-    search_query = "品牌命名规范"   # 检索的问题
-    rag_context = retrieve_user_knowledge(query=search_query,user_id=user_id)  # 返回通过知识库 (向量数据库) 中检索到的数据
-    # 将检索出的数据拼接成提示词
-    if rag_context:
-        rag_prompt = f"""
-    【用户的专属私有知识库参考】
-    {rag_context}
-    原则：请优先参考上面的规则和词汇。
-    """                        # 给大模型另外补充的提示词
-    else:
-        rag_prompt = """
-    本次没有检索到足够相关的专属资料。
-    原则：不要编造用户知识库内容，直接根据用户需求生成。
-    """
+    exclude_text = "、".join(state["exclude"])
+    core_requirement = (state.get("other") or "").strip()
+    rag_prompt = await asyncio.to_thread(
+        _knowledge_prompt,
+        user_id=state["user_id"],
+        query=" ".join(
+            part
+            for part in [
+                "企业品牌起名",
+                core_requirement,
+                f"避讳{exclude_text}" if exclude_text else "",
+            ]
+            if part
+        ),
+        fallback_query=core_requirement,
+        focus="企业品牌命名",
+        knowledge_type="company",
+    )
 
     # 将 rag 提示词和用户信息提示词组合
     prompt = f"""你是一位精通商业品牌传播的资深顾问。请创作符合商业规范的公司名。
@@ -106,53 +197,63 @@ async def company_naming_node(state: WorkflowState) -> Dict[str, Any]:
     # 【避讳排除字】: {'、'.join(state['exclude'])}
     # 原则：易于传播、符合行业调性，具备良好的商业愿景。请给出 5 个候选方案。"""
 
-    # 需要微调走的位置
-    feedback = state.get("feedback")  # 用户的调整意见
-    history_names = state.get("history_names") # 上一次大模型生成的历史结果
-    if feedback and history_names:    # 两个都不为空才可以判断为是微调
-        # 将意见和历史起名结果一起拼成提示词
-        feedback_instruction = f"""
-                🟣 警告：这是一次微调请求！
-                【上一轮你生成的名字是】：{history_names}
-                【用户的最新修改意见】：{feedback}
-
-                请严格保留上一轮中用户满意的部分，仅针对【修改意见】对历史名字进行迭代优化！绝不能抛弃历史记录重新随机生成！
-                """
-        # 再将反馈的提示词信息和之前的初始需求一起拼接成新的提示词
-        prompt = f"""你是一位资深的起名顾问。
-               【用户初始需求】：{prompt}
-
-               {feedback_instruction}
-
-               🔴 核心纪律：如果有用户的修改意见，必须完全服从！给出 5 个候选方案。"""
+    feedback_instruction = _feedback_instruction(state)
+    if feedback_instruction:
+        prompt = f"""{prompt}
+        {feedback_instruction}
+        请输出调整后的 5 个候选方案。"""
 
 
     # 这个是将输出的结果拼成字符串作为历史起名
     response = await structured_llm.ainvoke(prompt)   # 里面包含域名和域名状态  {tread_id:..., names:[{name:,domain:,domain_state:}...]}
     # tasks = ["未注册"，“已注册”，"未注册"，“已注册”，“已注册”]
     tasks = [check_domain(n.domain) for n in response.names]  # for n in [{name:,domain:,domain_state:},...]
-    statuses = await asyncio.gather(*tasks)   # 用于并发执行多个异步任务并聚合结果的核心高阶 API，最后返回结果的排序和传入服务器参数的原始序列一致
+    statuses = await asyncio.gather(*tasks, return_exceptions=True)   # 域名服务不可用不能导致整次公司起名失败
 
     for n, status in zip(response.names, statuses):   # [({name:,domain:,domain_state:},status),...] 拼接一个名字字典和对应的域名状态的元组
-        n.domain_status = status
+        if isinstance(status, Exception):
+            logger.warning("域名查询失败：域名=%s，异常=%s", n.domain, status)
+            n.domain_status = "⚠️ 域名查询暂时不可用"
+        else:
+            n.domain_status = status
 
     # 使用新的起名结果替换历史的起名结果
-    memory_list = [f"【{n.name}】寓意：{n.moral}" for n in response.names]
-    names_str = "\n".join(memory_list)
-
-    return {"final_output": response.model_dump(), "history_names": names_str}   # model_dump() 就是将 WorkflowState 类的输出格式 -> dict
+    return {"final_output": response.model_dump(), "history_names": _history_names(response)}   # model_dump() 就是将 WorkflowState 类的输出格式 -> dict
 
 
 # 宠物起名的节点
 async def pet_naming_node(state: WorkflowState) -> Dict[str, Any]:
     """宠物起名节点"""
+    exclude_text = "、".join(state["exclude"])
+    core_requirement = (state.get("other") or "").strip()
+    rag_prompt = await asyncio.to_thread(
+        _knowledge_prompt,
+        user_id=state["user_id"],
+        query=" ".join(
+            part
+            for part in [
+                "宠物起名",
+                core_requirement,
+                f"避讳{exclude_text}" if exclude_text else "",
+            ]
+            if part
+        ),
+        fallback_query=core_requirement,
+        focus="宠物命名",
+        knowledge_type="pet",
+    )
     prompt = f"""你是一位充满创意的宠物达人。请为用户的宠物起一些富有灵性的名字。
     【宠物特征/性格】: {state['other']}
     【字数限制】: {state['length']}
     【避讳排除字】: {'、'.join(state['exclude'])}
+    {rag_prompt}
+    {_feedback_instruction(state)}
     原则：亲切好记、富有画面感或软萌感。请给出 5 个候选方案。"""
     response = await structured_llm.ainvoke(prompt)
-    return {"final_output": response.model_dump()}
+    return {
+        "final_output": response.model_dump(),
+        "history_names": _history_names(response),
+    }
 
 # 5. 构建流程图
 workflow = StateGraph(WorkflowState)  # StateGraph(定义图的状态)
@@ -238,6 +339,25 @@ async def feedback_naming(fedback_in: FeedbackIn,user_id:int):
     }
 
     config = {"configurable": {"thread_id": fedback_in.thread_id}}    # 配置 thread_id 拿到所有起名的历史结果
+    snapshot = await naming_graph.aget_state(config)
+    previous_state = snapshot.values or {}
+    if not previous_state:
+        raise WorkflowSessionNotFoundError("起名会话不存在或已失效，请重新生成一组名字")
+    if previous_state.get("user_id") != user_id:
+        raise WorkflowSessionAccessError("无权访问该起名会话")
+    if previous_state.get("category") != fedback_in.category:
+        raise WorkflowSessionCategoryError("起名类型与原会话不一致")
+
+    # 兼容修复前已经生成的人名/宠物名会话：旧记录没有 history_names，
+    # 但 final_output 中仍保留了候选名字，可在反馈时恢复为历史上下文。
+    if not previous_state.get("history_names"):
+        previous_names = (previous_state.get("final_output") or {}).get("names") or []
+        if previous_names:
+            workflow_state["history_names"] = "\n".join(
+                f"【{item.get('name', '')}】寓意：{item.get('moral', '')}"
+                for item in previous_names
+            )
+
     # 将记忆和微调信息传入流转图的状态中
     final_output = await naming_graph.ainvoke(workflow_state, config)
     return {"thread_id": fedback_in.thread_id, "final_output": final_output.get("final_output", None)}

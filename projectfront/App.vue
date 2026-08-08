@@ -1,7 +1,13 @@
 <script>
+import { applyDisplayPreferences } from './utils/preferences'
+
 export default {
   onLaunch() {
     console.log('知名台前端已启动')
+    applyDisplayPreferences()
+  },
+  onShow() {
+    applyDisplayPreferences()
   }
 }
 </script>
@@ -189,4 +195,22 @@ button[disabled] {
 .safe-bottom {
   height: env(safe-area-inset-bottom);
 }
+
+/* #ifdef H5 */
+html.ainame-large-text {
+  font-size: 18px;
+}
+
+html.ainame-high-contrast page {
+  color: #0b1020;
+}
+
+html.ainame-reduce-motion *,
+html.ainame-reduce-motion *::before,
+html.ainame-reduce-motion *::after {
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+}
+/* #endif */
 </style>

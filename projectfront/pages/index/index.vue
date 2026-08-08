@@ -56,8 +56,8 @@ export default {
       loggedIn: false,
       quickActions: [
         { title: 'AI 起名', desc: '人名 · 企业 · 宠物', icon: '名', page: '/pages/naming/index', tab: true, background: '#ebe9ff' },
-        { title: '专属知识库', desc: '登录后上传 PDF 或 TXT', icon: '库', page: '/pages/create/index', tab: true, mode: 'knowledge', auth: true, background: '#e2f5ee' },
-        { title: 'Logo 生成', desc: '登录后进行视觉创作', icon: '图', page: '/pages/create/index', tab: true, mode: 'logo', auth: true, background: '#fff0df' },
+        { title: '专属知识库', desc: '登录后上传 PDF 或 TXT', icon: '库', page: '/pages/knowledge/index', auth: true, background: '#e2f5ee' },
+        { title: 'Logo 生成', desc: '登录后进行视觉创作', icon: '图', page: '/pages/logo/index', auth: true, background: '#fff0df' },
         { title: '套餐购买', desc: '无需登录即可查看', icon: '充', page: '/pages/account/index', tab: true, background: '#fff5c9' }
       ]
     }
@@ -107,7 +107,6 @@ export default {
         uni.navigateTo({ url: '/pages/auth/login' })
         return
       }
-      if (item.mode) uni.setStorageSync('create_default_mode', item.mode)
       if (item.tab) uni.switchTab({ url: item.page })
       else uni.navigateTo({ url: item.page })
     }
