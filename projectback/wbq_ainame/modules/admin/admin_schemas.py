@@ -1,10 +1,31 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from schemas.user_schemas import RawPasswordStr
 
 
 UserStatus = Literal["active", "frozen", "deleted"]
+
+
+class AdminBootstrapStatusOut(BaseModel):
+    initialization_required: bool
+    bootstrap_enabled: bool
+
+
+class AdminBootstrapIn(BaseModel):
+    email: EmailStr
+    username: str = Field(..., min_length=3, max_length=8)
+    password: RawPasswordStr
+    bootstrap_secret: str = Field(..., min_length=1, max_length=512)
+
+
+class AdminBootstrapOut(BaseModel):
+    message: str
+    user_id: int
+    email: EmailStr
+    username: str
 
 
 class AdminActionIn(BaseModel):

@@ -20,6 +20,7 @@
         <input v-model="form.password" class="field-input admin-input" password maxlength="64" placeholder="请输入管理员密码" @confirm="submit" />
       </view>
       <button class="admin-login-btn" :loading="loading" :disabled="loading" @click="submit">进入管理后台</button>
+      <button v-if="showBootstrap" class="bootstrap-link" @click="goBootstrap">初始化首个管理员</button>
       <button class="user-login-link" @click="goUserLogin">返回普通用户登录</button>
     </view>
 
@@ -38,10 +39,22 @@ export default {
   data() {
     return {
       loading: false,
+      showBootstrap: false,
       form: { email: '', password: '' }
     }
   },
+  onShow() {
+    this.loadBootstrapStatus()
+  },
   methods: {
+    async loadBootstrapStatus() {
+      try {
+        const status = await api.getAdminBootstrapStatus()
+        this.showBootstrap = Boolean(status.initialization_required && status.bootstrap_enabled)
+      } catch (error) {
+        this.showBootstrap = false
+      }
+    },
     async submit() {
       if (!this.form.email || !this.form.password) {
         uni.showToast({ title: '请输入管理员邮箱和密码', icon: 'none' })
@@ -71,6 +84,9 @@ export default {
     },
     goUserLogin() {
       uni.navigateBack()
+    },
+    goBootstrap() {
+      uni.navigateTo({ url: '/pages/admin/bootstrap' })
     }
   }
 }
@@ -88,6 +104,7 @@ export default {
 .first-field { margin-top: 0; }
 .admin-input { background: #f1f3f7; }
 .admin-login-btn { height: 88rpx; margin-top: 30rpx; color: #272b3f; background: linear-gradient(135deg, #f2d586, #dfbd62); border-radius: 21rpx; box-shadow: 0 13rpx 26rpx rgba(210,174,79,.25); font-size: 27rpx; font-weight: 800; line-height: 88rpx; }
+.bootstrap-link { margin-top: 17rpx; color: #66531e; background: #fbf4df; border: 1rpx solid #ead69a; font-size: 23rpx; }
 .user-login-link { margin-top: 17rpx; color: #687286; background: transparent; font-size: 23rpx; }
 .safe-tip { margin-top: 30rpx; padding: 22rpx; color: #9ea6b8; border-top: 1rpx solid rgba(255,255,255,.1); font-size: 20rpx; line-height: 1.6; }
 .safe-tip text { display: block; margin-bottom: 5rpx; color: #e2c774; font-weight: 700; }

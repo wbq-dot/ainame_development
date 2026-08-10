@@ -1,21 +1,77 @@
+import secrets
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import settings
 from core.authtools import AuthHandler
 from dependencies import get_session
 from modules.admin.admin_repo import (
     AdminRepository,
+    AdminEmailConflict,
     AdminStateConflict,
     AdminTargetForbidden,
     AdminTargetNotFound,
 )
-from modules.admin.admin_schemas import AdminActionIn, AdminActionOut, AdminUserListOut
+from modules.admin.admin_schemas import (
+    AdminActionIn,
+    AdminActionOut,
+    AdminBootstrapIn,
+    AdminBootstrapOut,
+    AdminBootstrapStatusOut,
+    AdminUserListOut,
+)
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 auth_handler = AuthHandler()
+MIN_BOOTSTRAP_SECRET_LENGTH = 32
+
+
+def _bootstrap_enabled() -> bool:
+    return len(settings.ADMIN_BOOTSTRAP_SECRET) >= MIN_BOOTSTRAP_SECRET_LENGTH
+
+
+@router.get("/bootstrap/status", response_model=AdminBootstrapStatusOut)
+async def bootstrap_status(session: AsyncSession = Depends(get_session)):
+    initialization_required = await AdminRepository(session).bootstrap_status()
+    return {
+        "initialization_required": initialization_required,
+        "bootstrap_enabled": _bootstrap_enabled(),
+    }
+
+
+@router.post("/bootstrap", response_model=AdminBootstrapOut, status_code=201)
+async def bootstrap_admin(
+    data: AdminBootstrapIn,
+    session: AsyncSession = Depends(get_session),
+):
+    configured_secret = settings.ADMIN_BOOTSTRAP_SECRET
+    if not _bootstrap_enabled():
+        raise HTTPException(status_code=503, detail="管理员网页初始化未启用")
+    if not secrets.compare_digest(data.bootstrap_secret, configured_secret):
+        raise HTTPException(status_code=403, detail="初始化凭据无效")
+
+    try:
+        user = await AdminRepository(session).bootstrap_admin(
+            email=str(data.email),
+            username=data.username,
+            password=data.password,
+        )
+    except AdminEmailConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AdminStateConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="管理员账号与现有数据冲突") from exc
+    return {
+        "message": "首任管理员创建成功",
+        "user_id": user.id,
+        "email": user.email,
+        "username": user.username,
+    }
 
 
 @router.get("/users", response_model=AdminUserListOut)

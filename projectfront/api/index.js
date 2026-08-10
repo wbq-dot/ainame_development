@@ -8,6 +8,8 @@ export const api = {
   }),
   register: (data) => request({ url: '/auth/register', method: 'POST', data }),
   login: (data) => request({ url: '/auth/login', method: 'POST', data }),
+  getAdminBootstrapStatus: () => request({ url: '/admin/bootstrap/status' }),
+  bootstrapAdmin: (data) => request({ url: '/admin/bootstrap', method: 'POST', data }),
   generateNames: (data) => request({ url: '/name/generate', method: 'POST', data, auth: true }),
   feedbackNames: (data) => request({ url: '/name/feedback', method: 'POST', data, auth: true }),
   getBalance: () => request({ url: '/credit/balance', auth: true }),
