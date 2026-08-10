@@ -2,7 +2,7 @@ import secrets
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.User import User
@@ -22,9 +22,52 @@ class AdminStateConflict(Exception):
     pass
 
 
+class AdminEmailConflict(Exception):
+    pass
+
+
 class AdminRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def bootstrap_status(self) -> bool:
+        admin_count = await self.session.scalar(
+            select(func.count(User.id)).where(User.role == "admin")
+        )
+        return int(admin_count or 0) == 0
+
+    async def bootstrap_admin(self, email: str, username: str, password: str) -> User:
+        async with self.session.begin():
+            # PostgreSQL 事务级 advisory lock：让“检查并创建首任管理员”成为单一临界区。
+            await self.session.execute(
+                text("SELECT pg_advisory_xact_lock(:lock_id)"),
+                {"lock_id": 0x41494E414D45},
+            )
+            admin_count = await self.session.scalar(
+                select(func.count(User.id)).where(User.role == "admin")
+            )
+            if int(admin_count or 0) > 0:
+                raise AdminStateConflict("系统已经完成管理员初始化")
+
+            existing = await self.session.scalar(select(User).where(User.email == email))
+            if existing:
+                raise AdminEmailConflict("该邮箱已经存在")
+
+            user = User(
+                email=email,
+                username=username,
+                password=password,
+                role="admin",
+                status="active",
+            )
+            self.session.add(user)
+            await self.session.flush()
+            self.session.add(UserCredit(user_id=user.id, balance=0, logo_balance=0))
+            self.session.add(
+                self._build_log(user.id, user.id, "bootstrap_admin", "网页初始化首任管理员")
+            )
+            await self.session.flush()
+            return user
 
     @staticmethod
     def _to_dict(user: User, credit: UserCredit | None) -> dict:

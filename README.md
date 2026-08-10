@@ -143,6 +143,9 @@ REDIS_URL=********
 # 登录认证
 JWT_SECRET_KEY=********
 
+# 首任管理员网页初始化部署密钥；要求至少32个字符
+ADMIN_BOOTSTRAP_SECRET=********
+
 # DeepSeek 模型接口
 DEEP_SEEKER_API_KEY=********
 
@@ -180,6 +183,7 @@ APP_BASE_URL=********
 | `USE_CREDENTIALS`、`VALIDATE_CERTS` | 邮件登录和证书校验开关 |
 | `REDIS_URL` | Redis 连接地址 |
 | `JWT_SECRET_KEY` | 登录令牌签名密钥；生产环境必须使用足够长的随机值 |
+| `ADMIN_BOOTSTRAP_SECRET` | 首任管理员网页初始化密钥；不配置时初始化入口关闭，创建成功后接口不再允许初始化 |
 | `DEEP_SEEKER_API_KEY` | DeepSeek 模型接口密钥 |
 | `ALIPAY_*` | 支付宝应用、网关、回调地址和签名密钥 |
 | `CHROMDB_PATH` | Chroma 向量数据库的本地保存目录 |

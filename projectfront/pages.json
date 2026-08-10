@@ -47,6 +47,10 @@
     {
       "path": "pages/admin/login",
       "style": { "navigationBarTitleText": "管理员登录" }
+    },
+    {
+      "path": "pages/admin/bootstrap",
+      "style": { "navigationBarTitleText": "初始化管理员" }
     }
   ],
   "tabBar": {
