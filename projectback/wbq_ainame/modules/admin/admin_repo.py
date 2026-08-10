@@ -27,6 +27,9 @@ class AdminEmailConflict(Exception):
 
 
 class AdminRepository:
+    BOOTSTRAP_LOCK_NAME = "ainame_admin_bootstrap"
+    BOOTSTRAP_LOCK_TIMEOUT_SECONDS = 10
+
     def __init__(self, session: AsyncSession):
         self.session = session
 
@@ -37,37 +40,74 @@ class AdminRepository:
         return int(admin_count or 0) == 0
 
     async def bootstrap_admin(self, email: str, username: str, password: str) -> User:
-        async with self.session.begin():
-            # PostgreSQL 事务级 advisory lock：让“检查并创建首任管理员”成为单一临界区。
-            await self.session.execute(
-                text("SELECT pg_advisory_xact_lock(:lock_id)"),
-                {"lock_id": 0x41494E414D45},
+        # MySQL 命名锁属于连接而非事务。使用独立连接持锁，确保锁覆盖业务事务
+        # 的检查、写入和最终提交；业务事务结束后才释放锁。
+        async with self.session.bind.connect() as lock_connection:
+            lock_acquired = await lock_connection.scalar(
+                text("SELECT GET_LOCK(:lock_name, :timeout_seconds)"),
+                {
+                    "lock_name": self.BOOTSTRAP_LOCK_NAME,
+                    "timeout_seconds": self.BOOTSTRAP_LOCK_TIMEOUT_SECONDS,
+                },
             )
-            admin_count = await self.session.scalar(
-                select(func.count(User.id)).where(User.role == "admin")
-            )
-            if int(admin_count or 0) > 0:
-                raise AdminStateConflict("系统已经完成管理员初始化")
+            if lock_acquired != 1:
+                raise AdminStateConflict("管理员初始化正在进行，请稍后重试")
 
-            existing = await self.session.scalar(select(User).where(User.email == email))
-            if existing:
-                raise AdminEmailConflict("该邮箱已经存在")
+            operation_failed = False
+            try:
+                async with self.session.begin():
+                    admin_count = await self.session.scalar(
+                        select(func.count(User.id)).where(User.role == "admin")
+                    )
+                    if int(admin_count or 0) > 0:
+                        raise AdminStateConflict("系统已经完成管理员初始化")
 
-            user = User(
-                email=email,
-                username=username,
-                password=password,
-                role="admin",
-                status="active",
-            )
-            self.session.add(user)
-            await self.session.flush()
-            self.session.add(UserCredit(user_id=user.id, balance=0, logo_balance=0))
-            self.session.add(
-                self._build_log(user.id, user.id, "bootstrap_admin", "网页初始化首任管理员")
-            )
-            await self.session.flush()
-            return user
+                    existing = await self.session.scalar(
+                        select(User).where(User.email == email)
+                    )
+                    if existing:
+                        raise AdminEmailConflict("该邮箱已经存在")
+
+                    user = User(
+                        email=email,
+                        username=username,
+                        password=password,
+                        role="admin",
+                        status="active",
+                    )
+                    self.session.add(user)
+                    await self.session.flush()
+                    self.session.add(UserCredit(user_id=user.id, balance=0, logo_balance=0))
+                    self.session.add(
+                        self._build_log(
+                            user.id,
+                            user.id,
+                            "bootstrap_admin",
+                            "网页初始化首任管理员",
+                        )
+                    )
+                    await self.session.flush()
+                return user
+            except BaseException:
+                operation_failed = True
+                raise
+            finally:
+                release_failed = False
+                try:
+                    lock_released = await lock_connection.scalar(
+                        text("SELECT RELEASE_LOCK(:lock_name)"),
+                        {"lock_name": self.BOOTSTRAP_LOCK_NAME},
+                    )
+                except BaseException:
+                    release_failed = True
+                else:
+                    release_failed = lock_released != 1
+
+                if release_failed:
+                    # MySQL 命名锁属于连接；释放异常时销毁连接，避免锁随连接回到池中。
+                    await lock_connection.invalidate()
+                    if not operation_failed:
+                        raise RuntimeError("管理员初始化数据库锁释放失败")
 
     @staticmethod
     def _to_dict(user: User, credit: UserCredit | None) -> dict:

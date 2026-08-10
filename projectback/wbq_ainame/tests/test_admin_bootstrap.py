@@ -109,20 +109,41 @@ class FakeTransaction:
         return False
 
 
+class FakeConnectionContext:
+    def __init__(self, connection):
+        self.connection = connection
+
+    async def __aenter__(self):
+        return self.connection
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return False
+
+
 class FakeBootstrapSession:
-    def __init__(self):
-        self.scalar_results = [0, None]
+    def __init__(self, lock_result=1, release_result=1):
+        self.lock_scalar_results = [lock_result, release_result]
+        self.business_scalar_results = [0, None]
         self.executed = []
         self.added = []
+        self.invalidated = False
+        self.bind = self
 
     def begin(self):
         return FakeTransaction()
 
-    async def execute(self, statement, parameters=None):
-        self.executed.append((str(statement), parameters))
+    def connect(self):
+        return FakeConnectionContext(self)
 
-    async def scalar(self, statement):
-        return self.scalar_results.pop(0)
+    async def scalar(self, statement, parameters=None):
+        sql = str(statement)
+        self.executed.append((sql, parameters))
+        if "GET_LOCK" in sql or "RELEASE_LOCK" in sql:
+            return self.lock_scalar_results.pop(0)
+        return self.business_scalar_results.pop(0)
+
+    async def invalidate(self):
+        self.invalidated = True
 
     def add(self, value):
         self.added.append(value)
@@ -143,7 +164,9 @@ class AdminBootstrapRepositoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(42, user.id)
         self.assertEqual("admin", user.role)
         self.assertEqual("active", user.status)
-        self.assertIn("pg_advisory_xact_lock", session.executed[0][0])
+        self.assertIn("GET_LOCK", session.executed[0][0])
+        self.assertIn("RELEASE_LOCK", session.executed[-1][0])
+        self.assertFalse(session.invalidated)
         credit = next(value for value in session.added if isinstance(value, UserCredit))
         audit = next(value for value in session.added if isinstance(value, AdminActionLog))
         self.assertEqual(0, credit.balance)
@@ -151,6 +174,41 @@ class AdminBootstrapRepositoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("bootstrap_admin", audit.action)
         self.assertEqual(42, audit.admin_user_id)
         self.assertEqual(42, audit.target_user_id)
+
+    async def test_bootstrap_rejects_when_mysql_lock_times_out(self):
+        session = FakeBootstrapSession(lock_result=0)
+
+        with self.assertRaises(AdminStateConflict) as context:
+            await AdminRepository(session).bootstrap_admin(
+                "owner@example.com", "owner", "safe-password"
+            )
+
+        self.assertIn("正在进行", str(context.exception))
+        self.assertEqual(1, len(session.executed))
+        self.assertEqual([], session.added)
+
+    async def test_bootstrap_releases_lock_when_admin_already_exists(self):
+        session = FakeBootstrapSession()
+        session.business_scalar_results = [1]
+
+        with self.assertRaises(AdminStateConflict):
+            await AdminRepository(session).bootstrap_admin(
+                "owner@example.com", "owner", "safe-password"
+            )
+
+        self.assertIn("GET_LOCK", session.executed[0][0])
+        self.assertIn("RELEASE_LOCK", session.executed[-1][0])
+        self.assertFalse(session.invalidated)
+
+    async def test_bootstrap_invalidates_connection_if_release_fails(self):
+        session = FakeBootstrapSession(release_result=0)
+
+        with self.assertRaisesRegex(RuntimeError, "数据库锁释放失败"):
+            await AdminRepository(session).bootstrap_admin(
+                "owner@example.com", "owner", "safe-password"
+            )
+
+        self.assertTrue(session.invalidated)
 
 if __name__ == "__main__":
     unittest.main()
