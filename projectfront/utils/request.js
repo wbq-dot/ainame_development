@@ -41,7 +41,7 @@ function refreshAccessToken() {
   return refreshTask
 }
 
-export function request({ url, method = 'GET', data, auth = false, header = {}, retried = false }) {
+export function request({ url, method = 'GET', data, auth = false, optionalAuth = false, header = {}, retried = false }) {
   return new Promise((resolve, reject) => {
     const token = getAccessToken()
     if (auth && !token) {
@@ -56,7 +56,7 @@ export function request({ url, method = 'GET', data, auth = false, header = {}, 
       timeout: 180000,
       header: {
         'Content-Type': 'application/json',
-        ...(auth ? { Authorization: `Bearer ${token}` } : {}),
+        ...(auth || (optionalAuth && token) ? { Authorization: `Bearer ${token}` } : {}),
         ...header
       },
       success: async (res) => {
@@ -64,10 +64,10 @@ export function request({ url, method = 'GET', data, auth = false, header = {}, 
           resolve(res.data)
           return
         }
-        if (auth && !retried && res.statusCode === 401 && getRefreshToken()) {
+        if ((auth || optionalAuth) && !retried && res.statusCode === 401 && getRefreshToken()) {
           try {
             await refreshAccessToken()
-            resolve(await request({ url, method, data, auth, header, retried: true }))
+            resolve(await request({ url, method, data, auth, optionalAuth, header, retried: true }))
             return
           } catch (error) {
             clearLogin()
@@ -75,12 +75,12 @@ export function request({ url, method = 'GET', data, auth = false, header = {}, 
             return
           }
         }
-        if (auth && res.statusCode === 423) {
+        if ((auth || optionalAuth) && res.statusCode === 423) {
           clearLogin()
           reject(new Error('账号已被冻结，请联系管理员'))
           return
         }
-        if (auth && res.statusCode === 401) clearLogin()
+        if ((auth || optionalAuth) && res.statusCode === 401) clearLogin()
         reject(new Error(normalizeError(res.data, res.statusCode)))
       },
       fail: (error) => {

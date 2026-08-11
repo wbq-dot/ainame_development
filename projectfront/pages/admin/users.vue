@@ -9,6 +9,12 @@
       <view class="total-badge"><text>{{ total }}</text>位用户</view>
     </view>
 
+    <view class="console-nav">
+      <view class="active">用户管理</view>
+      <view @click="goAdminPage('/pages/admin/experts')">专家服务</view>
+      <view @click="goAdminPage('/pages/admin/community')">社区管理</view>
+    </view>
+
     <view class="search-panel">
       <view class="search-row">
         <input v-model.trim="keyword" class="search-input" maxlength="100" placeholder="搜索邮箱或用户名" confirm-type="search" @confirm="search" />
@@ -144,6 +150,9 @@ export default {
     this.loadUsers(true)
   },
   methods: {
+    goAdminPage(url) {
+      uni.navigateTo({ url })
+    },
     async loadUsers(reset = false) {
       if (this.loading) return
       if (reset) {
@@ -250,6 +259,9 @@ export default {
 .total-badge { display: flex; flex-direction: column; align-items: center; min-width: 105rpx; padding: 15rpx; color: #d7dbea; background: rgba(255,255,255,.1); border-radius: 20rpx; font-size: 18rpx; }
 .total-badge text { color: #f2d586; font-size: 34rpx; font-weight: 850; }
 .search-panel { margin-top: 22rpx; padding: 24rpx; background: #fff; border-radius: 25rpx; box-shadow: 0 10rpx 30rpx rgba(36,55,86,.05); }
+.console-nav { display: flex; gap: 12rpx; margin-top: 20rpx; padding: 8rpx; background: #e7e9ee; border-radius: 18rpx; }
+.console-nav view { flex: 1; padding: 15rpx 0; color: #70798c; border-radius: 13rpx; font-size: 21rpx; text-align: center; }
+.console-nav view.active { color: #fff; background: #30364d; font-weight: 750; }
 .search-row { display: flex; gap: 13rpx; }
 .search-input { flex: 1; min-width: 0; height: 78rpx; padding: 0 20rpx; background: #f3f5f8; border-radius: 17rpx; font-size: 24rpx; }
 .search-btn { width: 115rpx; height: 78rpx; margin: 0; color: #fff; background: #30364d; border-radius: 17rpx; font-size: 23rpx; line-height: 78rpx; }

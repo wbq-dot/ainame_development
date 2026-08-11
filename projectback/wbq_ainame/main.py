@@ -50,6 +50,8 @@ from modules.admin.admin_router import router as admin_router
 from modules.expert.expert_router import router as expert_router
 from modules.expert.expert_admin_router import router as expert_admin_router
 from modules.expert.expert_pay_router import router as expert_pay_router
+from modules.community.community_router import router as community_router
+from modules.community.community_router import admin_router as community_admin_router
 
 
 BACKEND_DIR = Path(__file__).resolve().parent   # Path(__file__) 当前的文件路径 resolve() 解析 parent 上层的文件夹   D:\data\wbq_ainame
@@ -77,6 +79,8 @@ app.include_router(admin_router)
 app.include_router(expert_router)
 app.include_router(expert_admin_router)
 app.include_router(expert_pay_router)
+app.include_router(community_router)
+app.include_router(community_admin_router)
 
 @app.get("/")
 async def root():

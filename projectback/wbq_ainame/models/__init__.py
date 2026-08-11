@@ -64,4 +64,5 @@ from . import package
 from . import user_order
 from modules.admin import admin_action_log
 from modules.expert import expert_models
+from modules.community import community_models
 

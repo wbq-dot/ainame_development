@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import vm from 'node:vm'
+import { spawnSync } from 'node:child_process'
 
 const projectRoot = path.resolve(import.meta.dirname, '..')
 const pagesConfig = JSON.parse(fs.readFileSync(path.join(projectRoot, 'pages.json'), 'utf8'))
@@ -41,6 +42,18 @@ function checkTemplate(template, file) {
   if (stack.length) failures.push(`${file}: 模板缺少 </${stack.at(-1)}>`)
 }
 
+function checkScript(script, file) {
+  if (typeof vm.SourceTextModule === 'function') {
+    new vm.SourceTextModule(script, { identifier: file })
+    return
+  }
+  const result = spawnSync(process.execPath, ['--input-type=module', '--check'], {
+    input: script,
+    encoding: 'utf8'
+  })
+  if (result.status !== 0) throw new Error((result.stderr || '语法检查失败').trim())
+}
+
 const configuredPaths = new Set()
 for (const page of pagesConfig.pages) {
   if (configuredPaths.has(page.path)) failures.push(`pages.json: 重复页面 ${page.path}`)
@@ -60,7 +73,7 @@ for (const file of vueFiles) {
   if (!script) failures.push(`${relative}: 缺少 script`)
   else {
     try {
-      new vm.SourceTextModule(script, { identifier: relative })
+      checkScript(script, relative)
     } catch (error) {
       failures.push(`${relative}: JavaScript 语法错误：${error.message}`)
     }

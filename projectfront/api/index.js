@@ -28,6 +28,22 @@ export const api = {
   }),
   generateLogo: (data) => request({ url: '/logos/generate', method: 'POST', data, auth: true }),
 
+  getCommunityTopics: ({ sort = 'latest', page = 1, pageSize = 20 } = {}) => request({
+    url: `/community/topics?sort=${sort}&page=${page}&page_size=${pageSize}`,
+    optionalAuth: true
+  }),
+  createCommunityTopic: (data) => request({ url: '/community/topics', method: 'POST', data, auth: true }),
+  addCommunityCandidate: (topicId, data) => request({ url: `/community/topics/${topicId}/candidates`, method: 'POST', data, auth: true }),
+  voteCommunityCandidate: (topicId, candidateId) => request({ url: `/community/topics/${topicId}/vote`, method: 'PUT', data: { candidate_id: candidateId }, auth: true }),
+  getCommunityComments: (topicId) => request({ url: `/community/topics/${topicId}/comments` }),
+  addCommunityComment: (topicId, content) => request({ url: `/community/topics/${topicId}/comments`, method: 'POST', data: { content }, auth: true }),
+  reportCommunityContent: (data) => request({ url: '/community/reports', method: 'POST', data, auth: true }),
+  getAdminCommunityTopics: ({ status = 'all', page = 1, pageSize = 20 } = {}) => request({ url: `/admin/community/topics?status=${status}&page=${page}&page_size=${pageSize}`, auth: true }),
+  setCommunityFeatured: (topicId, isFeatured) => request({ url: `/admin/community/topics/${topicId}/featured`, method: 'PUT', data: { is_featured: isFeatured }, auth: true }),
+  moderateCommunityContent: (data) => request({ url: '/admin/community/moderate', method: 'POST', data, auth: true }),
+  getAdminCommunityReports: (status = 'pending') => request({ url: `/admin/community/reports?status=${status}`, auth: true }),
+  resolveCommunityReport: (reportId, data) => request({ url: `/admin/community/reports/${reportId}/resolve`, method: 'POST', data, auth: true }),
+
   getAdminUsers: ({ page = 1, pageSize = 20, keyword = '', status = '' }) => {
     const params = [
       `page=${page}`,
