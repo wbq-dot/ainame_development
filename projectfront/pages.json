@@ -18,7 +18,31 @@
     },
     {
       "path": "pages/logo/index",
-      "style": { "navigationBarTitleText": "Logo 工作室" }
+      "style": { "navigationBarTitleText": "Logo 图案" }
+    },
+    {
+      "path": "pages/expert/index",
+      "style": { "navigationBarTitleText": "专家起名" }
+    },
+    {
+      "path": "pages/expert/detail",
+      "style": { "navigationBarTitleText": "专家起名资料" }
+    },
+    {
+      "path": "pages/expert/center",
+      "style": { "navigationBarTitleText": "专家服务" }
+    },
+    {
+      "path": "pages/expert/orders",
+      "style": { "navigationBarTitleText": "专家起名订单" }
+    },
+    {
+      "path": "pages/expert/apply",
+      "style": { "navigationBarTitleText": "专家入驻" }
+    },
+    {
+      "path": "pages/expert/workbench",
+      "style": { "navigationBarTitleText": "专家工作台" }
     },
     {
       "path": "pages/account/index",
@@ -47,6 +71,10 @@
     {
       "path": "pages/admin/login",
       "style": { "navigationBarTitleText": "管理员登录" }
+    },
+    {
+      "path": "pages/admin/experts",
+      "style": { "navigationBarTitleText": "专家服务管理" }
     }
   ],
   "tabBar": {
@@ -57,7 +85,7 @@
     "list": [
       { "pagePath": "pages/index/index", "text": "首页" },
       { "pagePath": "pages/naming/index", "text": "起名" },
-      { "pagePath": "pages/create/index", "text": "创作" },
+      { "pagePath": "pages/logo/index", "text": "Logo 图案" },
       { "pagePath": "pages/account/index", "text": "我的" }
     ]
   },

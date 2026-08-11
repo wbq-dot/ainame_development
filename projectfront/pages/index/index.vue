@@ -56,8 +56,9 @@ export default {
       loggedIn: false,
       quickActions: [
         { title: 'AI 起名', desc: '人名 · 企业 · 宠物', icon: '名', page: '/pages/naming/index', tab: true, background: '#ebe9ff' },
+        { title: '专家起名', desc: '三档专家 · 主动接单', icon: '专', page: '/pages/expert/index', background: '#e7f7ef' },
         { title: '专属知识库', desc: '登录后上传 PDF 或 TXT', icon: '库', page: '/pages/knowledge/index', auth: true, background: '#e2f5ee' },
-        { title: 'Logo 生成', desc: '登录后进行视觉创作', icon: '图', page: '/pages/logo/index', auth: true, background: '#fff0df' },
+        { title: 'Logo 图案', desc: '完整品牌视觉创作室', icon: '图', page: '/pages/logo/index', auth: true, tab: true, background: '#fff0df' },
         { title: '套餐购买', desc: '无需登录即可查看', icon: '充', page: '/pages/account/index', tab: true, background: '#fff5c9' }
       ]
     }

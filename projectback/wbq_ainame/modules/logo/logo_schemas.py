@@ -1,9 +1,17 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # 客户传入的信息
 class LogoGenerateIn(BaseModel):
-    company_name: str    # 公司名
-    style_feedback: str = "" #反馈意见
+    company_name: str = Field(min_length=1, max_length=100)
+    slogan: str = Field(default="", max_length=100)
+    industry: str = Field(default="", max_length=100)
+    brand_personality: str = Field(default="", max_length=300)
+    logo_style: str = Field(default="极简现代", max_length=100)
+    primary_colors: str = Field(default="", max_length=100)
+    graphic_elements: str = Field(default="", max_length=300)
+    forbidden_elements: str = Field(default="", max_length=300)
+    usage_scenes: str = Field(default="官网、App 图标、名片", max_length=300)
+    style_feedback: str = Field(default="", max_length=1000)
 
 # 给客户输出的信息
 class LogoGenerateOut(BaseModel):

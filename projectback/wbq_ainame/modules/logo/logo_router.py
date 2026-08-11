@@ -36,7 +36,7 @@ async def generate_logo(
         logo = await run_in_threadpool(
             generate_company_logo,
             company_name=company_name,
-            style_feedback=data.style_feedback,
+            **data.model_dump(exclude={"company_name"}),
         )
     except Exception as exc:
         await _refund_logo_credit(credit_repository, user_id)

@@ -1,0 +1,67 @@
+{
+  "created_at": "2026-08-10T20:20:25",
+  "purpose": "永久清理前删除清单，不包含密码哈希或客户正文",
+  "snapshot": {
+    "expert_counts": {
+      "expert_income": 1,
+      "expert_settlement_request": 1,
+      "expert_review": 0,
+      "expert_report": 1,
+      "expert_order_attachment": 0,
+      "expert_order": 4,
+      "expert_service_package": 0,
+      "expert_profile": 3
+    },
+    "unpaid_order_ids": [
+      22,
+      23,
+      24,
+      25,
+      26
+    ],
+    "paid_order_ids": [
+      3,
+      4,
+      5,
+      11,
+      14,
+      20,
+      27
+    ],
+    "accounts": [
+      {
+        "id": 2,
+        "email": "admin@ainame.com",
+        "username": "admin",
+        "role": "admin",
+        "status": "active"
+      },
+      {
+        "id": 6,
+        "email": "ordinary.expert@example.local",
+        "username": "ordinary_expert",
+        "role": "expert",
+        "status": "active"
+      },
+      {
+        "id": 7,
+        "email": "renowned.expert@example.local",
+        "username": "renowned_expert",
+        "role": "expert",
+        "status": "active"
+      },
+      {
+        "id": 8,
+        "email": "top.expert@example.local",
+        "username": "top_expert",
+        "role": "expert",
+        "status": "active"
+      }
+    ]
+  },
+  "id_plan": {
+    "paid_user_order": "按原 ID 升序重排为 1-7",
+    "credit_log": "按原 ID 升序重排为 1-53",
+    "empty_expert_tables_next_id": 1
+  }
+}

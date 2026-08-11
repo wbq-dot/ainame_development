@@ -16,7 +16,7 @@ DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
 DASHSCOPE_BASE_URL = os.getenv("DASHSCOPE_BASE_URL", "").strip().rstrip("/")
 WANXIANG_MODEL = os.getenv("WANXIANG_MODEL", "wan2.6-t2i")
 APP_BASE_URL = os.getenv("APP_BASE_URL",
-"http://127.0.0.1:8000").strip().rstrip("/")
+"http://192.168.0.20:8000").strip().rstrip("/")
 
 
 def _split_env_list(value: str) -> list[str]:

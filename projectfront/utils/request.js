@@ -139,3 +139,20 @@ export function upload({ url, filePath, name = 'file', formData = {}, auth = tru
     })
   })
 }
+
+export function download({ url, auth = true }) {
+  return new Promise((resolve, reject) => {
+    const token = getAccessToken()
+    if (auth && !token) { reject(new Error('请先登录')); return }
+    uni.downloadFile({
+      url: `${getApiBaseUrl()}${url}`,
+      timeout: 180000,
+      header: auth ? { Authorization: `Bearer ${token}` } : {},
+      success: (res) => {
+        if (res.statusCode >= 200 && res.statusCode < 300) resolve(res.tempFilePath)
+        else reject(new Error(`下载失败（${res.statusCode}）`))
+      },
+      fail: (error) => reject(new Error(error.errMsg || '文件下载失败'))
+    })
+  })
+}

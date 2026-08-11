@@ -145,3 +145,23 @@ class AuthHandler:
         if user.role != "admin":
             raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="需要管理员权限")
         return user.id
+
+    async def expert_dependency(
+        self,
+        auth: HTTPAuthorizationCredentials = Security(security),
+    ) -> int:
+        """校验正式专家角色及专家资料状态。"""
+        user_id = self.decode_access_token(auth.credentials)
+        user = await self._get_available_user(user_id)
+        if user.role != "expert":
+            raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="需要专家权限")
+        from sqlalchemy import select
+        from modules.expert.expert_models import ExpertProfile
+
+        async with AsyncSessionFactory() as session:
+            profile = await session.scalar(
+                select(ExpertProfile).where(ExpertProfile.user_id == user.id)
+            )
+        if not profile or profile.status != "approved":
+            raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="专家资格未生效或已停用")
+        return user.id

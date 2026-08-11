@@ -31,6 +31,13 @@ def read_password() -> str:
     return password
 
 
+def read_password_once() -> str:
+    password = getpass.getpass("请输入要验证的管理员密码：")
+    if not 1 <= len(password) <= 64:
+        raise ValueError("密码长度必须为 1-64 位")
+    return password
+
+
 async def create_test_admin(password: str, assume_yes: bool) -> int:
     action = (
         "即将创建本地测试管理员：\n"
@@ -93,6 +100,34 @@ async def promote_user(email: str, assume_yes: bool) -> int:
     return 0
 
 
+async def reset_password(email: str, password: str, assume_yes: bool) -> int:
+    action = (
+        f"即将重置管理员账号 {email} 的密码。\n"
+        "只更新密码哈希，不修改邮箱、用户名、角色或状态。"
+    )
+    if not confirm(action, assume_yes):
+        print("操作已取消。")
+        return 1
+
+    async with AsyncSessionFactory() as session:
+        async with session.begin():
+            user = await session.scalar(
+                select(User).where(User.email == email).with_for_update()
+            )
+            if not user:
+                print("重置失败：账号不存在。")
+                return 2
+            if user.role != "admin":
+                print("重置失败：目标账号不是管理员。")
+                return 3
+            if user.status != "active":
+                print("重置失败：目标管理员不是正常状态。")
+                return 4
+            user.password = password
+    print(f"管理员账号 {email} 的密码已重置。")
+    return 0
+
+
 async def show_user(email: str) -> int:
     async with AsyncSessionFactory() as session:
         result = await session.execute(
@@ -112,6 +147,19 @@ async def show_user(email: str) -> int:
     print(f"Status: {user.status}")
     print(f"Balance: {credit.balance if credit else 0}")
     print("Password stored as hash: yes")
+    return 0
+
+
+async def verify_password(email: str, password: str) -> int:
+    async with AsyncSessionFactory() as session:
+        user = await session.scalar(select(User).where(User.email == email))
+    if not user:
+        print("验证失败：账号不存在。")
+        return 2
+    if not user.check_password(password):
+        print("验证失败：密码不正确。")
+        return 3
+    print(f"密码验证通过。Role: {user.role}; Status: {user.status}")
     return 0
 
 
@@ -150,8 +198,19 @@ def parse_args():
     promote_parser.add_argument("--email", required=True)
     promote_parser.add_argument("--yes", action="store_true", help="跳过交互确认")
 
+    reset_parser = subparsers.add_parser(
+        "reset-password", help="重置现有管理员账号密码"
+    )
+    reset_parser.add_argument("--email", required=True)
+    reset_parser.add_argument("--yes", action="store_true", help="跳过交互确认")
+
     show_parser = subparsers.add_parser("show", help="只读查看账号角色和状态")
     show_parser.add_argument("--email", required=True)
+
+    verify_parser = subparsers.add_parser(
+        "verify-password", help="只读验证管理员账号密码"
+    )
+    verify_parser.add_argument("--email", required=True)
 
     email_parser = subparsers.add_parser("change-email", help="修改现有账号邮箱")
     email_parser.add_argument("--from-email", required=True)
@@ -172,8 +231,22 @@ async def async_main() -> int:
             return await create_test_admin(password, args.yes)
         if args.command == "promote":
             return await promote_user(args.email, args.yes)
+        if args.command == "reset-password":
+            try:
+                password = read_password()
+            except ValueError as exc:
+                print(f"重置失败：{exc}")
+                return 2
+            return await reset_password(args.email, password, args.yes)
         if args.command == "show":
             return await show_user(args.email)
+        if args.command == "verify-password":
+            try:
+                password = read_password_once()
+            except ValueError as exc:
+                print(f"验证失败：{exc}")
+                return 2
+            return await verify_password(args.email, password)
         if args.command == "change-email":
             return await change_email(args.from_email, args.to_email, args.yes)
         return 1

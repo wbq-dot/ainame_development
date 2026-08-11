@@ -38,7 +38,7 @@
           <view class="entry-eyebrow">LOGO STUDIO</view>
           <view class="entry-title">企业 Logo 生成</view>
           <view class="entry-desc">输入企业名称与风格，让模型生成一枚独立品牌标识。</view>
-          <view class="entry-link">进入 Logo 工作室 <text>→</text></view>
+          <view class="entry-link">进入 Logo 图案 <text>→</text></view>
         </view>
         <view class="entry-art logo-art">
           <view class="logo-ring ring-one"></view>
@@ -69,7 +69,7 @@ export default {
     const target = uni.getStorageSync('create_default_mode')
     uni.removeStorageSync('create_default_mode')
     if (this.loggedIn && target === 'knowledge') uni.navigateTo({ url: '/pages/knowledge/index' })
-    if (this.loggedIn && target === 'logo') uni.navigateTo({ url: '/pages/logo/index' })
+    if (this.loggedIn && target === 'logo') uni.switchTab({ url: '/pages/logo/index' })
   },
   methods: {
     goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) },
@@ -83,7 +83,8 @@ export default {
         })
         return
       }
-      uni.navigateTo({ url })
+      if (url === '/pages/logo/index') uni.switchTab({ url })
+      else uni.navigateTo({ url })
     }
   }
 }
