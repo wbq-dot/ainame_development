@@ -62,8 +62,7 @@ from . import User    # 当使用 FastAPI 运行main接口时，直接读取导�
 from . import user_credit
 from . import package
 from . import user_order
-from . import account_security
-from . import payment_refund
-from . import admin_action_log
-from . import expert_models
+from modules.admin import admin_action_log
+from modules.expert import expert_models
+from modules.community import community_models
 
