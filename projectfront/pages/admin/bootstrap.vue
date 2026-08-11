@@ -43,6 +43,7 @@
 
 <script>
 import { api } from '../../api'
+import { enforceAdminConsoleRoute } from '../../utils/auth'
 
 export default {
   data() {
@@ -56,6 +57,7 @@ export default {
     }
   },
   onShow() {
+    if (enforceAdminConsoleRoute()) return
     this.loadStatus()
   },
   methods: {

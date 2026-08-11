@@ -33,7 +33,7 @@
 
 <script>
 import { api } from '../../api'
-import { clearLogin, saveLogin } from '../../utils/auth'
+import { clearLogin, enforceAdminConsoleRoute, saveLogin } from '../../utils/auth'
 
 export default {
   data() {
@@ -44,6 +44,7 @@ export default {
     }
   },
   onShow() {
+    if (enforceAdminConsoleRoute()) return
     this.loadBootstrapStatus()
   },
   methods: {
@@ -74,7 +75,7 @@ export default {
         }
         saveLogin(data)
         uni.showToast({ title: '管理员登录成功', icon: 'success' })
-        setTimeout(() => uni.redirectTo({ url: '/pages/admin/users' }), 450)
+        setTimeout(() => uni.reLaunch({ url: '/pages/admin/users' }), 450)
       } catch (error) {
         clearLogin()
         uni.showToast({ title: error.message, icon: 'none', duration: 2800 })
@@ -83,7 +84,7 @@ export default {
       }
     },
     goUserLogin() {
-      uni.navigateBack()
+      uni.reLaunch({ url: '/pages/auth/login' })
     },
     goBootstrap() {
       uni.navigateTo({ url: '/pages/admin/bootstrap' })

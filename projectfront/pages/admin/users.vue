@@ -6,7 +6,10 @@
         <view class="hero-title">普通用户管理</view>
         <view class="hero-desc">账号信息在左，余额与使用数据居中，所有账号操作统一在右。</view>
       </view>
-      <view class="total-badge"><text>{{ total }}</text>位用户</view>
+      <view class="hero-actions">
+        <view class="total-badge"><text>{{ total }}</text>位用户</view>
+        <button class="admin-logout-btn" @click="confirmAdminLogout">退出登录</button>
+      </view>
     </view>
     <view class="refund-entry" @click="openRefunds"><text>退</text><view><view>退款审批</view><small>处理用户整单退款与异常重试</small></view><b>›</b></view>
 
@@ -134,7 +137,7 @@
 
 <script>
 import { api } from '../../api'
-import { getUser } from '../../utils/auth'
+import { handleAdminAuthError, logoutAdmin, requireAdminSession } from '../../utils/auth'
 
 export default {
   data() {
@@ -197,20 +200,21 @@ export default {
       return this.changeAmount !== null && this.predictedBalance >= 0 && this.predictedBalance <= 2147483647 && Boolean(this.creditForm.reason.trim())
     }
   },
-  onLoad() {
-    const currentUser = getUser()
-    if (!currentUser || currentUser.role !== 'admin') {
-      uni.showModal({
-        title: '无权访问',
-        content: '该页面仅限管理员使用。',
-        showCancel: false,
-        success: () => uni.navigateBack()
-      })
-      return
-    }
+  onShow() {
+    if (!requireAdminSession()) return
     this.loadUsers(true)
   },
   methods: {
+    confirmAdminLogout() {
+      uni.showModal({
+        title: '退出管理员登录',
+        content: '退出后将清除当前设备保存的管理员登录状态。',
+        confirmColor: '#d94a64',
+        success: ({ confirm }) => {
+          if (confirm) logoutAdmin()
+        }
+      })
+    },
     openRefunds() { uni.navigateTo({ url: '/pages/admin/refunds' }) },
     goPackages() {
       uni.redirectTo({ url: '/pages/admin/packages' })
@@ -233,7 +237,7 @@ export default {
         this.total = data.total
       } catch (error) {
         uni.showToast({ title: error.message, icon: 'none', duration: 3000 })
-        if (error.message.includes('管理员权限')) setTimeout(() => uni.navigateBack(), 800)
+        handleAdminAuthError(error)
       } finally {
         this.loading = false
       }
@@ -316,6 +320,7 @@ export default {
         await this.loadUsers(true)
       } catch (error) {
         uni.showToast({ title: error.message, icon: 'none', duration: 3000 })
+        handleAdminAuthError(error)
       } finally {
         this.submitting = false
       }
@@ -354,6 +359,7 @@ export default {
         this.creditForm = { creditType: 'name', changeText: '', reason: '' }
       } catch (error) {
         uni.showToast({ title: error.message, icon: 'none', duration: 3000 })
+        handleAdminAuthError(error)
       } finally {
         this.creditSubmitting = false
       }
@@ -365,6 +371,8 @@ export default {
 <style scoped>
 .admin-page { min-height: 100vh; padding: 28rpx 28rpx 70rpx; background: #f3f5f9; }
 .admin-hero { display: flex; align-items: center; justify-content: space-between; padding: 34rpx 32rpx; color: #fff; background: linear-gradient(135deg, #171d2d, #373c55); border-radius: 29rpx; box-shadow: 0 18rpx 40rpx rgba(23, 29, 45, 0.2); }
+.hero-actions { display: flex; flex-direction: column; align-items: stretch; gap: 10rpx; }
+.admin-logout-btn { height: 54rpx; margin: 0; padding: 0 18rpx; color: #f5df9e; background: rgba(255,255,255,.08); border: 1rpx solid rgba(245,223,158,.35); border-radius: 15rpx; font-size: 18rpx; line-height: 52rpx; }
 .refund-entry { display:flex; align-items:center; gap:18rpx; margin-top:20rpx; padding:22rpx 25rpx; color:#30364d; background:#fff; border-radius:22rpx; box-shadow:0 10rpx 30rpx rgba(36,55,86,.05); }
 .refund-entry > text { display:flex; align-items:center; justify-content:center; width:62rpx; height:62rpx; color:#fff; background:#6257e8; border-radius:17rpx; font-weight:850; }
 .refund-entry > view { flex:1; font-size:25rpx; font-weight:800; }

@@ -1,6 +1,15 @@
 const ACCESS_TOKEN_KEY = 'ainame_access_token'
 const REFRESH_TOKEN_KEY = 'ainame_refresh_token'
 const USER_KEY = 'ainame_user'
+const ADMIN_HOME_URL = '/pages/admin/users'
+const ADMIN_LOGIN_URL = '/pages/admin/login'
+const ADMIN_CONSOLE_ROUTES = new Set([
+  'pages/admin/users',
+  'pages/admin/packages',
+  'pages/admin/refunds'
+])
+
+let adminRedirecting = false
 
 export function getAccessToken() {
   return uni.getStorageSync(ACCESS_TOKEN_KEY) || ''
@@ -32,6 +41,63 @@ export function clearLogin() {
 
 export function isLoggedIn() {
   return Boolean(getAccessToken())
+}
+
+export function isAdminSession() {
+  const user = getUser()
+  return Boolean(getAccessToken() && user && user.role === 'admin')
+}
+
+function currentRoute() {
+  if (typeof getCurrentPages !== 'function') return ''
+  const pages = getCurrentPages()
+  const page = pages.length ? pages[pages.length - 1] : null
+  return String((page && (page.route || page.__route__)) || '').replace(/^\//, '')
+}
+
+function reLaunchOnce(url) {
+  if (adminRedirecting) return
+  adminRedirecting = true
+  uni.reLaunch({
+    url,
+    complete: () => {
+      setTimeout(() => {
+        adminRedirecting = false
+      }, 0)
+    }
+  })
+}
+
+export function enforceAdminConsoleRoute() {
+  if (!isAdminSession()) return false
+  const route = currentRoute()
+  if (!route || ADMIN_CONSOLE_ROUTES.has(route)) return false
+  reLaunchOnce(ADMIN_HOME_URL)
+  return true
+}
+
+export function requireAdminSession() {
+  if (isAdminSession()) return true
+  reLaunchOnce(ADMIN_LOGIN_URL)
+  return false
+}
+
+export function handleAdminAuthError(error) {
+  const message = String((error && error.message) || '')
+  const invalidSession = !getAccessToken()
+    || message.includes('请先登录')
+    || message.includes('登录已失效')
+    || message.includes('管理员权限')
+    || message.includes('账号已被冻结')
+  if (!invalidSession) return false
+  clearLogin()
+  reLaunchOnce(ADMIN_LOGIN_URL)
+  return true
+}
+
+export function logoutAdmin() {
+  clearLogin()
+  reLaunchOnce(ADMIN_LOGIN_URL)
 }
 
 export function goLogin() {

@@ -122,10 +122,8 @@ python -m pip check
 在 `projectback/wbq_ainame/.env` 中填写真实值：
 
 ```dotenv
-# 业务数据库
 DB_URI=********
 
-# 邮件服务
 MAIL_USERNAME=********
 MAIL_PASSWORD=********
 MAIL_FROM=********
@@ -137,96 +135,37 @@ MAIL_SSL_TLS=********
 USE_CREDENTIALS=********
 VALIDATE_CERTS=********
 
-# Redis
 REDIS_URL=********
 
-# 登录认证
 JWT_SECRET_KEY=********
-
-# 首任管理员网页初始化部署密钥；要求至少32个字符
 ADMIN_BOOTSTRAP_SECRET=********
-
-# DeepSeek 模型接口
 DEEP_SEEKER_API_KEY=********
 
-# 支付宝
-# 支付功能总开关。true 会在启动时校验支付宝配置并运行主动查单/查退任务；
-# false 会停用创建支付订单和后台支付对账。建议始终明确填写，不依赖默认值。
 PAYMENT_ENABLED=********
-
-# 支付宝运行环境，只能填写 sandbox 或 production。
-# sandbox 使用沙箱 SDK 模式和沙箱默认网关，production 使用正式环境。
-# 切换环境不会自动更换应用号、商户 PID 或密钥，必须将整套配置一起切换。
 ALIPAY_ENVIRONMENT=********
-
-# 支付宝开放平台应用 ID。异步通知和同步回跳中的 app_id 必须与此值一致。
-# 沙箱应用和生产应用使用不同的 App ID。
 ALIPAY_APP_ID=********
-
-# 实际收款商户的 PID/支付宝账户 ID，通常是以 2088 开头的数字。
-# 它不是 App ID，也不是支付宝登录邮箱；服务商模式下应填写实际收款商户 PID。
 ALIPAY_SELLER_ID=********
-
-# 可选的支付宝 API 网关覆盖地址。通常留空，由 ALIPAY_ENVIRONMENT 自动选择：
-# sandbox -> https://openapi-sandbox.dl.alipaydev.com/gateway.do
-# production -> https://openapi.alipay.com/gateway.do
-# 仅在使用代理或支付宝明确要求特殊网关时覆盖，配置错误会导致支付、查单和退款失败。
 ALIPAY_GATEWAY=********
-
-# 支付宝服务器异步通知地址，是正常订单唯一的入账依据。
-# 必须是支付宝能够访问的公网地址，正式环境建议使用有效 HTTPS；不能使用 127.0.0.1 或局域网地址。
-# 当前后端路由为 https://你的后端域名/pay/paySuccess，注意 paySuccess 中的 S 为大写。
-# 后端会依次校验 RSA2 签名、App ID、Seller ID、订单号、交易号、金额和交易状态。
 ALIPAY_NOTIFY_URL=********
-
-# 支付完成后的浏览器同步回跳地址，例如 https://你的后端域名/pay/success。
-# 该接口只验签并跳转前端结果页，不修改订单状态，也不发放次数；实际到账依赖异步通知或主动查单。
 ALIPAY_RETURN_URL=********
-
-# RSA2 应用私钥，用于签署本应用发给支付宝的请求，必须严格保密。
-# 当前代码会自动补充 PEM 头尾，应只填写密钥中间的 Base64 正文，不能带 BEGIN/END 行。
 ALIPAY_APP_PRIVATE_KEY=********
-
-# 支付宝公钥，用于验证支付宝响应和回调签名。
-# 必须填写开放平台提供的“支付宝公钥”，不能误填本应用的“应用公钥”。
 ALIPAY_PUBLIC_KEY=********
-
-# 同步回跳验签后最终进入的 UniApp 支付结果页。
-# H5 本地示例：http://127.0.0.1:8080/#/pages/payment/result；生产环境应换成正式前端地址。
-# 后端会自动附加 order_no 和 verified 参数，前端据此轮询订单状态。
 PAYMENT_FRONTEND_RESULT_URL=********
-
-# 支付订单有效期，单位为分钟，默认 60，最小 1。
-# 该值同时用于本地 expires_at 和支付宝 timeout_express；过期待支付订单会由查单任务确认并关闭。
-# 已关闭订单若后续确认付款，将进入自动退款流程，不会直接发放次数。
 PAYMENT_ORDER_TIMEOUT_MINUTES=********
-
-# 后台主动查单/查退任务的扫描间隔，单位为秒，默认 30，代码限制最小 10。
-# 它是任务扫描频率，不是单条失败记录的固定重试间隔；失败记录按数据库中的退避时间重试。
 PAYMENT_RECONCILE_INTERVAL_SECONDS=********
-
-# 每个后台进程每轮最多领取的待查订单数和待查退款数，默认 50，允许范围 1～100。
-# 多进程通过数据库行锁和租约避免同时处理同一条记录。
 PAYMENT_RECONCILE_BATCH_SIZE=********
-
-# 用户从订单 paid_at 开始可提交整单退款申请的时限，单位为小时，默认 24，最小 1。
-# 该值只决定申请资格，退款仍需管理员审批，且审批时会重新校验对应类型的次数余额。
 REFUND_WINDOW_HOURS=********
 
-# 本地目录
 CHROMDB_PATH=********
 UPLOAD_FOLDER=********
 
-# PostgreSQL 和 RabbitMQ
 POST_GRESQL_DB=********
 RABBITMQ_URL=********
 
-# 阿里云百炼 / 通义万相
 DASHSCOPE_API_KEY=********
 DASHSCOPE_BASE_URL=********
 WANXIANG_MODEL=********
 
-# 后端公开访问地址，例如本机开发地址 http://127.0.0.1:8000
 APP_BASE_URL=********
 ```
 
@@ -235,16 +174,34 @@ APP_BASE_URL=********
 | 配置项 | 用途 |
 | --- | --- |
 | `DB_URI` | 业务数据库连接地址 |
-| `MAIL_*` | 发件账号、服务器、端口和加密方式 |
-| `USE_CREDENTIALS`、`VALIDATE_CERTS` | 邮件登录和证书校验开关 |
+| `MAIL_USERNAME` | 邮件服务登录用户名 |
+| `MAIL_PASSWORD` | 邮件服务登录密码 |
+| `MAIL_FROM` | 发件人邮箱地址 |
+| `MAIL_PORT` | 邮件服务器端口 |
+| `MAIL_SERVER` | 邮件服务器地址 |
+| `MAIL_FROM_NAME` | 邮件中显示的发件人名称 |
+| `MAIL_STARTTLS` | 是否使用 STARTTLS 加密连接 |
+| `MAIL_SSL_TLS` | 是否直接使用 SSL/TLS 加密连接 |
+| `USE_CREDENTIALS` | 是否使用用户名和密码登录邮件服务 |
+| `VALIDATE_CERTS` | 是否校验邮件服务器的 TLS 证书 |
 | `REDIS_URL` | Redis 连接地址 |
 | `JWT_SECRET_KEY` | 登录令牌签名密钥；生产环境必须使用足够长的随机值 |
-| `ADMIN_BOOTSTRAP_SECRET` | 首任管理员网页初始化密钥；不配置时初始化入口关闭，创建成功后接口不再允许初始化 |
+| `ADMIN_BOOTSTRAP_SECRET` | 首任管理员网页初始化部署密钥，要求至少 32 个字符；不配置时初始化入口关闭，创建成功后接口不再允许初始化 |
 | `DEEP_SEEKER_API_KEY` | DeepSeek 模型接口密钥 |
-| `PAYMENT_ENABLED`、`ALIPAY_*` | 支付开关、沙箱/生产环境、应用与商户身份、回调地址和签名密钥 |
-| `PAYMENT_FRONTEND_RESULT_URL` | 支付宝同步回跳验签后跳转的 UniApp 支付结果页 |
-| `PAYMENT_ORDER_TIMEOUT_MINUTES`、`PAYMENT_RECONCILE_*` | 订单有效期、主动查单/查退周期和批次大小 |
-| `REFUND_WINDOW_HOURS` | 用户提交整单退款申请的时限，默认24小时 |
+| `PAYMENT_ENABLED` | 支付功能总开关。`true` 会在启动时校验支付宝配置并运行主动查单/查退任务；`false` 会停用创建支付订单和后台支付对账。建议始终明确填写，不依赖默认值 |
+| `ALIPAY_ENVIRONMENT` | 支付宝运行环境，只能填写 `sandbox` 或 `production`。前者使用沙箱 SDK 模式和沙箱默认网关，后者使用正式环境；切换时必须同时更换应用号、商户 PID 和密钥等整套配置 |
+| `ALIPAY_APP_ID` | 支付宝开放平台应用 ID。异步通知和同步回跳中的 `app_id` 必须与此值一致；沙箱应用和生产应用使用不同的 App ID |
+| `ALIPAY_SELLER_ID` | 实际收款商户的 PID/支付宝账户 ID，通常是以 2088 开头的数字；它不是 App ID 或支付宝登录邮箱，服务商模式下应填写实际收款商户 PID |
+| `ALIPAY_GATEWAY` | 可选的支付宝 API 网关覆盖地址。通常留空，由 `ALIPAY_ENVIRONMENT` 自动选择沙箱网关 `https://openapi-sandbox.dl.alipaydev.com/gateway.do` 或正式网关 `https://openapi.alipay.com/gateway.do`；仅在使用代理或支付宝明确要求特殊网关时覆盖 |
+| `ALIPAY_NOTIFY_URL` | 支付宝服务器异步通知地址，是正常订单唯一的入账依据。必须是支付宝可访问的公网地址，正式环境建议使用有效 HTTPS；后端路由为 `https://你的后端域名/pay/paySuccess`，注意 `paySuccess` 中的 `S` 为大写。后端会校验 RSA2 签名、App ID、Seller ID、订单号、交易号、金额和交易状态 |
+| `ALIPAY_RETURN_URL` | 支付完成后的浏览器同步回跳地址，例如 `https://你的后端域名/pay/success`。该接口只验签并跳转前端结果页，不修改订单状态或发放次数；实际到账依赖异步通知或主动查单 |
+| `ALIPAY_APP_PRIVATE_KEY` | 用于签署本应用发往支付宝请求的 RSA2 应用私钥，必须严格保密。代码会自动补充 PEM 头尾，只填写密钥中间的 Base64 正文，不要包含 `BEGIN`/`END` 行 |
+| `ALIPAY_PUBLIC_KEY` | 用于验证支付宝响应和回调签名的支付宝公钥；必须填写开放平台提供的“支付宝公钥”，不要误填本应用的“应用公钥” |
+| `PAYMENT_FRONTEND_RESULT_URL` | 支付宝同步回跳验签后进入的 UniApp 支付结果页。本地 H5 示例为 `http://127.0.0.1:8080/#/pages/payment/result`，生产环境应替换为正式前端地址；后端会自动附加 `order_no` 和 `verified` 参数，供前端轮询订单状态 |
+| `PAYMENT_ORDER_TIMEOUT_MINUTES` | 支付订单有效期，单位为分钟，默认 60，最小 1；同时用于本地 `expires_at` 和支付宝 `timeout_express`。过期待支付订单会由查单任务确认并关闭；已关闭订单若后续确认付款，将进入自动退款流程，不直接发放次数 |
+| `PAYMENT_RECONCILE_INTERVAL_SECONDS` | 后台主动查单/查退任务的扫描间隔，单位为秒，默认 30，代码限制最小 10；它是任务扫描频率，不是单条失败记录的固定重试间隔，失败记录按数据库中的退避时间重试 |
+| `PAYMENT_RECONCILE_BATCH_SIZE` | 每个后台进程每轮最多领取的待查订单数和待查退款数，默认 50，允许范围 1～100；多进程通过数据库行锁和租约避免同时处理同一条记录 |
+| `REFUND_WINDOW_HOURS` | 用户从订单 `paid_at` 开始可提交整单退款申请的时限，单位为小时，默认 24，最小 1；该值只决定申请资格，退款仍需管理员审批，审批时会重新校验对应类型的次数余额 |
 | `CHROMDB_PATH` | Chroma 向量数据库的本地保存目录 |
 | `UPLOAD_FOLDER` | 上传文件的本地保存目录 |
 | `POST_GRESQL_DB` | PostgreSQL 连接地址，供工作流等功能使用 |
@@ -252,7 +209,7 @@ APP_BASE_URL=********
 | `DASHSCOPE_API_KEY` | 阿里云百炼 API Key |
 | `DASHSCOPE_BASE_URL` | 阿里云百炼接口基础地址 |
 | `WANXIANG_MODEL` | 通义万相模型名称 |
-| `APP_BASE_URL` | 用户或外部服务可访问的后端基础地址 |
+| `APP_BASE_URL` | 用户或外部服务可访问的后端基础地址，例如本机开发地址 `http://127.0.0.1:8000` |
 
 布尔开关通常填写 `true` 或 `false`。路径建议使用绝对路径；Windows 路径如遇转义问题，可使用正斜杠，例如 `D:/data/uploads`。
 

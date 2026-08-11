@@ -6,7 +6,10 @@
         <view class="hero-title">套餐上下架管理</view>
         <view class="hero-desc">下架后禁止创建新订单，已经创建的订单仍按原套餐快照结算。</view>
       </view>
-      <view class="total-badge"><text>{{ packages.length }}</text>个套餐</view>
+      <view class="hero-actions">
+        <view class="total-badge"><text>{{ packages.length }}</text>个套餐</view>
+        <button class="admin-logout-btn" @click="confirmAdminLogout">退出登录</button>
+      </view>
     </view>
 
     <view class="admin-nav">
@@ -65,7 +68,7 @@
 
 <script>
 import { api } from '../../api'
-import { getUser } from '../../utils/auth'
+import { handleAdminAuthError, logoutAdmin, requireAdminSession } from '../../utils/auth'
 
 export default {
   data() {
@@ -87,20 +90,21 @@ export default {
       return this.packages.filter((item) => item.credit_type === this.packageType)
     }
   },
-  onLoad() {
-    const currentUser = getUser()
-    if (!currentUser || currentUser.role !== 'admin') {
-      uni.showModal({
-        title: '无权访问',
-        content: '该页面仅限管理员使用。',
-        showCancel: false,
-        success: () => uni.navigateBack()
-      })
-      return
-    }
+  onShow() {
+    if (!requireAdminSession()) return
     this.loadPackages()
   },
   methods: {
+    confirmAdminLogout() {
+      uni.showModal({
+        title: '退出管理员登录',
+        content: '退出后将清除当前设备保存的管理员登录状态。',
+        confirmColor: '#d94a64',
+        success: ({ confirm }) => {
+          if (confirm) logoutAdmin()
+        }
+      })
+    },
     goUsers() {
       uni.redirectTo({ url: '/pages/admin/users' })
     },
@@ -110,7 +114,7 @@ export default {
         this.packages = await api.getAdminPackages()
       } catch (error) {
         uni.showToast({ title: error.message, icon: 'none', duration: 3000 })
-        if (error.message.includes('管理员权限')) setTimeout(() => uni.navigateBack(), 800)
+        handleAdminAuthError(error)
       } finally {
         this.loading = false
       }
@@ -151,6 +155,7 @@ export default {
         uni.showToast({ title: result.message, icon: 'success' })
       } catch (error) {
         uni.showToast({ title: error.message, icon: 'none', duration: 3000 })
+        handleAdminAuthError(error)
       } finally {
         this.togglingId = null
       }
@@ -162,6 +167,8 @@ export default {
 <style scoped>
 .admin-page { min-height: 100vh; padding: 28rpx 28rpx 70rpx; background: #f3f5f9; }
 .admin-hero { display: flex; align-items: center; justify-content: space-between; padding: 34rpx 32rpx; color: #fff; background: linear-gradient(135deg,#171d2d,#373c55); border-radius: 29rpx; box-shadow: 0 18rpx 40rpx rgba(23,29,45,.2); }
+.hero-actions { display: flex; flex-direction: column; align-items: stretch; gap: 10rpx; }
+.admin-logout-btn { height: 54rpx; margin: 0; padding: 0 18rpx; color: #f5df9e; background: rgba(255,255,255,.08); border: 1rpx solid rgba(245,223,158,.35); border-radius: 15rpx; font-size: 18rpx; line-height: 52rpx; }
 .hero-eyebrow { color: #f2d586; font-size: 17rpx; font-weight: 800; letter-spacing: 4rpx; }
 .hero-title { margin-top: 12rpx; font-size: 39rpx; font-weight: 850; }
 .hero-desc { max-width: 530rpx; margin-top: 10rpx; color: #c6cbd7; font-size: 21rpx; line-height: 1.5; }
