@@ -8,6 +8,9 @@ from models.package import Package
 from models.user_credit import CreditLog, UserCredit
 from models.user_order import UserOrder
 
+class PackageUnavailableError(Exception):
+    pass
+
 
 class OrderRepo:
     def __init__(self, session):
@@ -17,9 +20,18 @@ class OrderRepo:
     def create_order_no() -> str:
         return uuid4().hex
 
-    async def create_order(self, user_id: int, package: Package) -> UserOrder:
+    async def create_order(
+        self, user_id: int, package_id: int
+    ) -> tuple[UserOrder, Package]:
         now = datetime.now()
         async with self.session.begin():
+            # 套餐状态校验和订单写入必须在同一事务内，并与管理员上下架共用行锁。
+            package = await self.session.scalar(
+                select(Package).where(Package.id == package_id).with_for_update()
+            )
+            if not package or not package.is_active:
+                raise PackageUnavailableError("套餐不存在或已下架")
+
             order = UserOrder(
                 order_no=self.create_order_no(),
                 user_id=user_id,
@@ -35,7 +47,7 @@ class OrderRepo:
             )
             self.session.add(order)
             await self.session.flush()
-            return order
+            return order, package
 
     async def get_by_order_no(
         self, order_no: str, user_id: int | None = None

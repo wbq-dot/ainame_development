@@ -31,8 +31,8 @@
     <view v-if="isAdmin" class="admin-entry" @click="openAdminUsers">
       <view class="admin-icon">管</view>
       <view class="admin-entry-main">
-        <view class="admin-entry-title">用户管理</view>
-        <view class="admin-entry-desc">查询、冻结、解冻或删除普通用户</view>
+        <view class="admin-entry-title">管理后台</view>
+        <view class="admin-entry-desc">管理用户、账户余额和套餐状态</view>
       </view>
       <view class="admin-arrow">›</view>
     </view>

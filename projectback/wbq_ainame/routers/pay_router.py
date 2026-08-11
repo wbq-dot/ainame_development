@@ -17,8 +17,7 @@ from core.alipaytools import (
 )
 from core.authtools import AuthHandler
 from dependencies import get_session
-from repository.order_repo import OrderRepo
-from repository.package_repo import PackageRepository
+from repository.order_repo import OrderRepo, PackageUnavailableError
 from repository.payment_repo import (
     PaymentConflict,
     PaymentNotFound,
@@ -56,10 +55,12 @@ async def create_order(
     except PaymentConfigurationError as exc:
         raise _payment_unavailable(exc) from exc
 
-    package = await PackageRepository(session).get_by_id(data.package_id)
-    if not package:
-        raise HTTPException(status_code=400, detail="套餐不存在或已下架")
-    order = await OrderRepo(session).create_order(user_id, package)
+    order_repo = OrderRepo(session=session)
+    # 查询并锁定套餐、校验上架状态、创建订单必须原子完成。
+    try:
+        order, package = await order_repo.create_order(user_id, data.package_id)
+    except PackageUnavailableError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     order_string = alipay.api_alipay_trade_page_pay(
         out_trade_no=order.order_no,
         subject=f"购买{package.name}",

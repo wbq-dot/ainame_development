@@ -6,8 +6,9 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.User import User
+from models.package import Package
 from modules.admin.admin_action_log import AdminActionLog
-from models.user_credit import UserCredit
+from models.user_credit import CreditLog, UserCredit
 
 
 class AdminTargetNotFound(Exception):
@@ -23,6 +24,10 @@ class AdminStateConflict(Exception):
 
 
 class AdminEmailConflict(Exception):
+    pass
+
+
+class AdminPackageNotFound(Exception):
     pass
 
 
@@ -160,6 +165,121 @@ class AdminRepository:
             items = [self._to_dict(user, credit) for user, credit in result.all()]
         return items, int(total or 0)
 
+    async def list_packages(self) -> list[Package]:
+        async with self.session.begin():
+            result = await self.session.scalars(
+                select(Package).order_by(Package.credit_type, Package.price, Package.id)
+            )
+            return list(result.all())
+
+    async def change_package_status(
+        self,
+        admin_user_id: int,
+        package_id: int,
+        is_active: bool,
+    ) -> tuple[Package, bool]:
+        async with self.session.begin():
+            package = await self.session.scalar(
+                select(Package).where(Package.id == package_id).with_for_update()
+            )
+            if not package:
+                raise AdminPackageNotFound("套餐不存在")
+            if package.is_active == is_active:
+                return package, False
+
+            package.is_active = is_active
+            action = "package_activate" if is_active else "package_deactivate"
+            self.session.add(
+                self._build_package_log(admin_user_id, package.id, action)
+            )
+            await self.session.flush()
+            return package, True
+
+    async def adjust_user_credit(
+        self,
+        admin_user_id: int,
+        target_user_id: int,
+        credit_type: str,
+        change_count: int,
+        reason: str,
+    ) -> dict:
+        if change_count == 0:
+            raise AdminStateConflict("调整次数不能为 0")
+        if not reason or not reason.strip():
+            raise AdminStateConflict("调整原因不能为空")
+
+        async with self.session.begin():
+            user = await self.session.scalar(
+                select(User).where(User.id == target_user_id).with_for_update()
+            )
+            self._validate_target(user, admin_user_id)
+            if user.status not in {"active", "frozen"}:
+                raise AdminStateConflict("只有正常或冻结用户可以调整余额")
+
+            credit = await self.session.scalar(
+                select(UserCredit)
+                .where(UserCredit.user_id == target_user_id)
+                .with_for_update()
+            )
+            if not credit:
+                credit = UserCredit(
+                    user_id=target_user_id,
+                    balance=0,
+                    total_used=0,
+                    total_recharge=0,
+                    logo_balance=0,
+                    logo_total_used=0,
+                    logo_total_recharge=0,
+                )
+                self.session.add(credit)
+
+            if credit_type == "logo":
+                balance_before = credit.logo_balance
+            elif credit_type == "name":
+                balance_before = credit.balance
+            else:
+                raise AdminStateConflict("不支持的余额类型")
+
+            balance_after = balance_before + change_count
+            if balance_after < 0:
+                raise AdminStateConflict("调整后余额不能小于 0")
+            if balance_after > 2147483647:
+                raise AdminStateConflict("调整后余额超出允许范围")
+
+            if credit_type == "logo":
+                credit.logo_balance = balance_after
+                credit_label = "Logo"
+            else:
+                credit.balance = balance_after
+                credit_label = "起名"
+
+            self.session.add(
+                CreditLog(
+                    user_id=target_user_id,
+                    change_count=change_count,
+                    balance_after=balance_after,
+                    credit_type=credit_type,
+                    type="admin_adjustment",
+                    remark=f"管理员 {admin_user_id} 手动调整{credit_label}次数",
+                )
+            )
+            self.session.add(
+                self._build_log(
+                    admin_user_id,
+                    target_user_id,
+                    f"adjust_{credit_type}_credit",
+                    reason,
+                )
+            )
+            await self.session.flush()
+            return {
+                "user": self._to_dict(user, credit),
+                "credit_type": credit_type,
+                "change_count": change_count,
+                "balance_before": balance_before,
+                "balance_after": balance_after,
+            }
+
     async def change_status(
         self,
         admin_user_id: int,
@@ -244,6 +364,21 @@ class AdminRepository:
         return AdminActionLog(
             admin_user_id=admin_user_id,
             target_user_id=target_user_id,
+            target_package_id=None,
             action=action,
             reason=normalized_reason,
+        )
+
+    @staticmethod
+    def _build_package_log(
+        admin_user_id: int,
+        target_package_id: int,
+        action: str,
+    ) -> AdminActionLog:
+        return AdminActionLog(
+            admin_user_id=admin_user_id,
+            target_user_id=None,
+            target_package_id=target_package_id,
+            action=action,
+            reason=None,
         )
