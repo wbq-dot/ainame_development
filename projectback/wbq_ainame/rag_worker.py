@@ -19,8 +19,13 @@ import sys
 import os
 import settings
 import aio_pika
-from core.rag_service import process_and_store_file
+from pathlib import Path
+from sqlalchemy import select
+
+from core.rag_service import delete_user_knowledge, process_and_store_file
 from dotenv import load_dotenv
+from models import AsyncSessionFactory
+from models.User import User
 load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
@@ -33,7 +38,14 @@ logger = logging.getLogger("rag_worker")
 
 RABBITMQ_URL = os.getenv("RABBITMQ_URL")
 
+
+async def user_is_active(user_id: int) -> bool:
+    async with AsyncSessionFactory() as session:
+        status = await session.scalar(select(User.status).where(User.id == user_id))
+    return status == "active"
+
 async def process_message(message: aio_pika.IncomingMessage):  # message 存在 rabbitMQ 的消息
+    file_path = None
     try:
         task_data = json.loads(message.body.decode("utf-8"))  # 将存入的 json 数据加载为 dict 拿出来
         user_id = int(task_data["user_id"])   # 取 user_id 值
@@ -42,6 +54,10 @@ async def process_message(message: aio_pika.IncomingMessage):  # message 存在 
         if not file_path:
             raise ValueError("知识库任务缺少文件路径")
 
+        if not await user_is_active(user_id):
+            await message.ack()
+            return
+
         # Chroma 和 Ollama 客户端是同步调用，放到工作线程避免阻塞 RabbitMQ 事件循环。
         split_count = await asyncio.to_thread(
             process_and_store_file,
@@ -49,19 +65,25 @@ async def process_message(message: aio_pika.IncomingMessage):  # message 存在 
             user_id,
             knowledge_type,
         )
+
+        # 注销可能发生在向量化过程中；完成后再次检查，防止内容被重新写回。
+        if not await user_is_active(user_id):
+            await asyncio.to_thread(delete_user_knowledge, user_id)
     except Exception:
         logger.exception("知识库任务处理失败，消息将被拒绝且不重新入队")
         if not message.processed:
             await message.reject(requeue=False)
-        return
-
-    await message.ack()
-    logger.info(
-        "知识库任务处理完成：用户=%s，分类=%s，文本块=%s",
-        user_id,
-        knowledge_type,
-        split_count,
-    )
+    else:
+        await message.ack()
+        logger.info(
+            "知识库任务处理完成：用户=%s，分类=%s，文本块=%s",
+            user_id,
+            knowledge_type,
+            split_count,
+        )
+    finally:
+        if file_path:
+            Path(file_path).unlink(missing_ok=True)
 
 
 async def main():

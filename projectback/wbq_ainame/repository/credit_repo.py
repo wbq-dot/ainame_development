@@ -2,10 +2,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.user_credit import CreditLog, UserCredit
+from models.account_security import NamingSession
+from models.User import User
 
 
 NAME_CREDIT_COST = 1
 LOGO_CREDIT_COST = 1
+
+
+class InactiveUserError(ValueError):
+    pass
 
 
 class CreditRepository:
@@ -70,13 +76,19 @@ class CreditRepository:
         name_balance, _ = await self.get_balances(user_id)
         return name_balance
 
-    async def consume_name_credit(self, user_id: int) -> int:
+    async def consume_name_credit(
+        self,
+        user_id: int,
+        thread_id: str | None = None,
+    ) -> int:
         return await self._consume_credit(
             user_id=user_id,
             credit_type="name",
             amount=NAME_CREDIT_COST,
             log_type="name_consume",
             remark="起名消耗1次",
+            thread_id=thread_id,
+            require_active_user=True,
         )
 
     async def consume_logo_credit(self, user_id: int) -> int:
@@ -123,8 +135,16 @@ class CreditRepository:
         amount: int,
         log_type: str,
         remark: str,
+        thread_id: str | None = None,
+        require_active_user: bool = False,
     ) -> int:
         async with self.session.begin():
+            if require_active_user:
+                user = await self.session.scalar(
+                    select(User).where(User.id == user_id).with_for_update()
+                )
+                if not user or user.status != "active":
+                    raise InactiveUserError("账号已失效")
             credit = await self.session.scalar(
                 select(UserCredit)
                 .where(UserCredit.user_id == user_id)
@@ -156,5 +176,9 @@ class CreditRepository:
                     remark=remark,
                 )
             )
+            if thread_id:
+                self.session.add(
+                    NamingSession(user_id=user_id, thread_id=thread_id)
+                )
             await self.session.flush()
             return balance_after

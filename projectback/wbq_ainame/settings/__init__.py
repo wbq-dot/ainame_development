@@ -20,6 +20,37 @@ APP_BASE_URL = os.getenv("APP_BASE_URL",
 ADMIN_BOOTSTRAP_SECRET = os.getenv("ADMIN_BOOTSTRAP_SECRET", "").strip()
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+ALIPAY_APP_ID = os.getenv("ALIPAY_APP_ID", "").strip()
+ALIPAY_SELLER_ID = os.getenv("ALIPAY_SELLER_ID", "").strip()
+ALIPAY_NOTIFY_URL = os.getenv("ALIPAY_NOTIFY_URL", "").strip()
+ALIPAY_RETURN_URL = os.getenv("ALIPAY_RETURN_URL", "").strip()
+ALIPAY_APP_PRIVATE_KEY = os.getenv("ALIPAY_APP_PRIVATE_KEY", "").strip()
+ALIPAY_PUBLIC_KEY = os.getenv("ALIPAY_PUBLIC_KEY", "").strip()
+ALIPAY_ENVIRONMENT = os.getenv("ALIPAY_ENVIRONMENT", "sandbox").strip().lower()
+PAYMENT_ENABLED = _env_bool("PAYMENT_ENABLED", bool(ALIPAY_APP_ID))
+PAYMENT_FRONTEND_RESULT_URL = os.getenv(
+    "PAYMENT_FRONTEND_RESULT_URL",
+    "http://127.0.0.1:8080/#/pages/payment/result",
+).strip()
+PAYMENT_ORDER_TIMEOUT_MINUTES = max(
+    1, int(os.getenv("PAYMENT_ORDER_TIMEOUT_MINUTES", "60"))
+)
+PAYMENT_RECONCILE_INTERVAL_SECONDS = max(
+    10, int(os.getenv("PAYMENT_RECONCILE_INTERVAL_SECONDS", "30"))
+)
+PAYMENT_RECONCILE_BATCH_SIZE = min(
+    100, max(1, int(os.getenv("PAYMENT_RECONCILE_BATCH_SIZE", "50")))
+)
+REFUND_WINDOW_HOURS = max(1, int(os.getenv("REFUND_WINDOW_HOURS", "24")))
+
+
 def _split_env_list(value: str) -> list[str]:
     return [item.strip().rstrip("/") for item in value.split(",") if item.strip()]
 

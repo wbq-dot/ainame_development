@@ -29,8 +29,20 @@
       "style": { "navigationBarTitleText": "创作记录" }
     },
     {
+      "path": "pages/orders/index",
+      "style": { "navigationBarTitleText": "订单与退款" }
+    },
+    {
+      "path": "pages/payment/result",
+      "style": { "navigationBarTitleText": "支付结果" }
+    },
+    {
+      "path": "pages/security/index",
+      "style": { "navigationBarTitleText": "账号安全" }
+    },
+    {
       "path": "pages/settings/index",
-      "style": { "navigationBarTitleText": "设置与安全" }
+      "style": { "navigationBarTitleText": "通用设置" }
     },
     {
       "path": "pages/auth/login",
@@ -43,6 +55,10 @@
     {
       "path": "pages/admin/users",
       "style": { "navigationBarTitleText": "用户管理" }
+    },
+    {
+      "path": "pages/admin/refunds",
+      "style": { "navigationBarTitleText": "退款审批" }
     },
     {
       "path": "pages/admin/login",

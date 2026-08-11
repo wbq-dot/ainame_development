@@ -8,6 +8,7 @@
       </view>
       <view class="total-badge"><text>{{ total }}</text>位用户</view>
     </view>
+    <view class="refund-entry" @click="openRefunds"><text>退</text><view><view>退款审批</view><small>处理用户整单退款与异常重试</small></view><b>›</b></view>
 
     <view class="search-panel">
       <view class="search-row">
@@ -44,9 +45,11 @@
         <view class="credit-item"><text>{{ user.balance }}</text><view>起名余额</view></view>
         <view class="credit-item"><text>{{ user.total_used }}</text><view>起名使用</view></view>
         <view class="credit-item"><text>{{ user.total_recharge }}</text><view>起名充值</view></view>
+        <view class="credit-item"><text>{{ user.total_refund }}</text><view>起名退款</view></view>
         <view class="credit-item"><text>{{ user.logo_balance }}</text><view>Logo 余额</view></view>
         <view class="credit-item"><text>{{ user.logo_total_used }}</text><view>Logo 使用</view></view>
         <view class="credit-item"><text>{{ user.logo_total_recharge }}</text><view>Logo 充值</view></view>
+        <view class="credit-item"><text>{{ user.logo_total_refund }}</text><view>Logo 退款</view></view>
       </view>
 
       <view class="time-line">
@@ -144,6 +147,7 @@ export default {
     this.loadUsers(true)
   },
   methods: {
+    openRefunds() { uni.navigateTo({ url: '/pages/admin/refunds' }) },
     async loadUsers(reset = false) {
       if (this.loading) return
       if (reset) {
@@ -244,6 +248,11 @@ export default {
 <style scoped>
 .admin-page { min-height: 100vh; padding: 28rpx 28rpx 70rpx; background: #f3f5f9; }
 .admin-hero { display: flex; align-items: center; justify-content: space-between; padding: 34rpx 32rpx; color: #fff; background: linear-gradient(135deg, #171d2d, #373c55); border-radius: 29rpx; box-shadow: 0 18rpx 40rpx rgba(23, 29, 45, 0.2); }
+.refund-entry { display:flex; align-items:center; gap:18rpx; margin-top:20rpx; padding:22rpx 25rpx; color:#30364d; background:#fff; border-radius:22rpx; box-shadow:0 10rpx 30rpx rgba(36,55,86,.05); }
+.refund-entry > text { display:flex; align-items:center; justify-content:center; width:62rpx; height:62rpx; color:#fff; background:#6257e8; border-radius:17rpx; font-weight:850; }
+.refund-entry > view { flex:1; font-size:25rpx; font-weight:800; }
+.refund-entry small { display:block; margin-top:5rpx; color:#8d95a5; font-size:19rpx; font-weight:400; }
+.refund-entry b { color:#7168c8; font-size:40rpx; }
 .hero-eyebrow { color: #f2d586; font-size: 17rpx; font-weight: 800; letter-spacing: 4rpx; }
 .hero-title { margin-top: 12rpx; font-size: 39rpx; font-weight: 850; }
 .hero-desc { margin-top: 10rpx; color: #c6cbd7; font-size: 21rpx; }

@@ -1,7 +1,7 @@
 <template>
   <view class="page-shell account-page">
     <view class="page-title">我的</view>
-    <view class="page-subtitle">账户次数与套餐购买。</view>
+    <view class="page-subtitle">管理账户权益、安全与使用偏好。</view>
 
     <view class="profile-card">
       <view class="avatar">{{ avatarText }}</view>
@@ -38,13 +38,12 @@
     </view>
 
     <view class="feature-section">
-      <view class="feature-heading"><view><view class="feature-title">账号与设置</view><view class="feature-subtitle">隐私、安全和使用偏好</view></view><view class="feature-decoration"><text></text><text></text><text></text></view></view>
-      <view class="feature-grid">
+      <view class="feature-heading"><view><view class="feature-title">账号与设置</view><view class="feature-subtitle">安全、记录与设备偏好</view></view><view class="feature-decoration"><text></text><text></text><text></text></view></view>
+      <view class="feature-list">
         <view v-for="item in featureMenus" :key="item.key" class="feature-item" @click="openFeature(item)">
           <view class="feature-icon" :style="{ color: item.color, background: item.background }">{{ item.icon }}</view>
-          <view class="feature-name">{{ item.title }}</view>
-          <view class="feature-desc">{{ item.desc }}</view>
-          <view class="feature-arrow">→</view>
+          <view class="feature-copy"><view class="feature-name">{{ item.title }}</view><view class="feature-desc">{{ item.desc }}</view></view>
+          <view class="feature-arrow">›</view>
         </view>
       </view>
     </view>
@@ -58,7 +57,7 @@
         <view class="purchase-title">套餐购买</view>
         <view class="purchase-subtitle">{{ packagesExpanded ? '收起套餐列表' : '点击查看套餐与价格' }}</view>
       </view>
-      <view class="sandbox-tag">支付宝沙箱</view>
+      <view class="sandbox-tag">支付宝支付</view>
       <view class="purchase-arrow">⌄</view>
     </view>
     <view v-if="packagesExpanded" class="package-list">
@@ -117,10 +116,10 @@ export default {
       packageType: 'name',
       showQr: false,
       featureMenus: [
-        { key: 'security', title: '账号安全', desc: '登录与邮箱状态', icon: '盾', color: '#3d8b72', background: '#e5f7f0' },
-        { key: 'display', title: '界面显示', desc: '字号与对比度', icon: '显', color: '#6257e8', background: '#ebe9ff' },
-        { key: 'history', title: '聊天记录', desc: '查看起名历史', icon: '记', color: '#b16b35', background: '#fff1df' },
-        { key: 'settings', title: '通用设置', desc: '偏好与设备设置', icon: '设', color: '#59677f', background: '#edf0f5' }
+        { key: 'security', title: '账号安全', desc: '修改密码、绑定邮箱或注销账号', path: '/pages/security/index', icon: '盾', color: '#3d8b72', background: '#e5f7f0' },
+        { key: 'orders', title: '订单与退款', desc: '查看支付状态并申请整单退款', path: '/pages/orders/index', icon: '单', color: '#4d63b3', background: '#e9eeff' },
+        { key: 'history', title: '聊天记录', desc: '查看当前设备保存的起名记录', path: '/pages/history/index', icon: '记', color: '#b16b35', background: '#fff1df' },
+        { key: 'settings', title: '通用设置', desc: '调整字号、对比度与动画效果', path: '/pages/settings/index', icon: '设', color: '#6257e8', background: '#ebe9ff' }
       ]
     }
   },
@@ -177,10 +176,8 @@ export default {
       })
     },
     openFeature(item) {
-      if (item.key === 'history') { uni.navigateTo({ url: '/pages/history/index' }); return }
-      if (!this.user) { this.goLogin(); return }
-      const section = item.key === 'security' ? 'security' : 'display'
-      uni.navigateTo({ url: `/pages/settings/index?section=${section}` })
+      if ((item.key === 'security' || item.key === 'orders') && !this.user) { this.goLogin(); return }
+      uni.navigateTo({ url: item.path })
     },
     copyAccountCode() {
       uni.setClipboardData({ data: this.accountCode, success: () => uni.showToast({ title: '账号编码已复制', icon: 'success' }) })
@@ -222,7 +219,7 @@ export default {
       if (!requireLogin()) return
       uni.showModal({
         title: '确认创建支付订单',
-        content: `准确动作：\n1. 为“${item.name}”创建一笔 ¥${item.price} 的未支付订单；\n2. 支付成功后到账 ${item.credit_count} 次${this.creditLabel(item.credit_type)}；\n3. 后端返回支付宝沙箱链接，再由你决定是否打开。\n\n现在创建订单吗？`,
+        content: `准确动作：\n1. 为“${item.name}”创建一笔 ¥${item.price} 的未支付订单；\n2. 只有支付宝异步通知或主动查单确认后才会到账 ${item.credit_count} 次${this.creditLabel(item.credit_type)}；\n3. 订单支付窗口为 60 分钟。\n\n现在创建订单吗？`,
         confirmText: '创建订单',
         success: ({ confirm }) => {
           if (confirm) this.createOrder(item)
@@ -235,7 +232,7 @@ export default {
         const order = await api.createOrder(item.id)
         uni.showModal({
           title: '订单已创建',
-          content: `订单号：${order.order_no}\n金额：¥${order.amount}\n到账：${order.credit_count} 次${this.creditLabel(order.credit_type)}\n\n点击“打开支付宝”只会进入沙箱支付页，实际付款仍需你在支付宝页面确认。`,
+          content: `订单号：${order.order_no}\n金额：¥${order.amount}\n到账：${order.credit_count} 次${this.creditLabel(order.credit_type)}\n\n点击“打开支付宝”进入收银台，实际付款仍需你在支付宝页面确认。`,
           confirmText: '打开支付宝',
           cancelText: '暂不支付',
           success: ({ confirm }) => {
@@ -256,7 +253,7 @@ export default {
       // #ifndef H5
       uni.setClipboardData({
         data: url,
-        success: () => uni.showModal({ title: '支付链接已复制', content: '请在浏览器中打开该链接完成沙箱支付。', showCancel: false })
+        success: () => uni.showModal({ title: '支付链接已复制', content: '请在浏览器中打开该链接完成支付，返回应用后可在“订单与退款”查询状态。', showCancel: false })
       })
       // #endif
     },
@@ -313,12 +310,14 @@ export default {
 .feature-decoration text { width: 12rpx; height: 12rpx; background: #6257e8; border-radius: 50%; }
 .feature-decoration text:nth-child(2) { background: #79cfb7; }
 .feature-decoration text:nth-child(3) { background: #f2bd68; }
-.feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 17rpx; margin-top: 18rpx; }
-.feature-item { position: relative; min-height: 190rpx; padding: 23rpx; background: #fff; border-radius: 24rpx; box-shadow: 0 11rpx 32rpx rgba(36,55,86,.055); }
-.feature-icon { display: flex; align-items: center; justify-content: center; width: 58rpx; height: 58rpx; border-radius: 17rpx; font-size: 22rpx; font-weight: 900; }
-.feature-name { margin-top: 16rpx; font-size: 25rpx; font-weight: 800; }
-.feature-desc { margin-top: 5rpx; color: #949cab; font-size: 18rpx; }
-.feature-arrow { position: absolute; right: 20rpx; bottom: 17rpx; color: #9c94d6; font-size: 25rpx; }
+.feature-list { display: flex; flex-direction: column; gap: 16rpx; margin-top: 18rpx; }
+.feature-item { display: flex; align-items: center; min-height: 120rpx; padding: 23rpx 25rpx; background: #fff; border: 1rpx solid rgba(31,55,90,.055); border-radius: 25rpx; box-shadow: 0 11rpx 32rpx rgba(36,55,86,.055); }
+.feature-item:active { transform: scale(.99); opacity: .84; }
+.feature-icon { display: flex; flex: 0 0 64rpx; align-items: center; justify-content: center; width: 64rpx; height: 64rpx; border-radius: 19rpx; font-size: 23rpx; font-weight: 900; }
+.feature-copy { flex: 1; min-width: 0; margin-left: 20rpx; }
+.feature-name { font-size: 26rpx; font-weight: 800; }
+.feature-desc { margin-top: 7rpx; color: #949cab; font-size: 20rpx; line-height: 1.45; }
+.feature-arrow { margin-left: 18rpx; color: #8f87cf; font-size: 42rpx; font-weight: 300; }
 .purchase-heading { display: flex; align-items: center; margin-top: 38rpx; padding: 24rpx 26rpx; background: linear-gradient(135deg, #ece9ff, #f7f5ff); border: 2rpx solid #ded9ff; border-radius: 25rpx; transition: border-radius 0.2s ease, box-shadow 0.2s ease; }
 .purchase-heading.expanded { border-color: #c8c0ff; box-shadow: 0 12rpx 30rpx rgba(98, 87, 232, 0.1); }
 .purchase-mark { position: relative; flex: 0 0 76rpx; height: 76rpx; }

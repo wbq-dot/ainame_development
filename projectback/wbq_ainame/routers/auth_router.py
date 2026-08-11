@@ -110,7 +110,10 @@ async def login(loginInfo:LoginIn,session:AsyncSession=Depends(get_session)):
 
 
     # 3.生成jwt token，返回 token 和 用户名、邮箱
-    tokens = auth_handler.encode_login_token(user_id=user.id)
+    tokens = auth_handler.encode_login_token(
+        user_id=user.id,
+        auth_version=user.auth_version,
+    )
     return {
         "user":user,
         "access_token":tokens["access_token"],
@@ -120,10 +123,13 @@ async def login(loginInfo:LoginIn,session:AsyncSession=Depends(get_session)):
 
 @router.post("/refresh", response_model=RefreshOutSchema)
 async def refresh_access_token(
-    user_id: int = Depends(auth_handler.auth_refresh_dependency),
+    user: User = Depends(auth_handler.auth_refresh_dependency),
 ):
     """使用有效的 refresh token 换取新的 access token。"""
-    return auth_handler.encode_update_token(user_id=user_id)
+    return auth_handler.encode_update_token(
+        user_id=user.id,
+        auth_version=user.auth_version,
+    )
 
 
 

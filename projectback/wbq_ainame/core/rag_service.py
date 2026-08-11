@@ -5,6 +5,7 @@ import re
 import time
 from pathlib import Path
 
+import chromadb
 import httpx
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain_core.embeddings import Embeddings
@@ -101,6 +102,25 @@ def _resolve_chromadb_path(raw_path: str | None) -> str:
 
 
 CHROMDB_PATH = _resolve_chromadb_path(os.getenv("CHROMDB_PATH"))
+
+
+def delete_user_knowledge(user_id: int) -> int:
+    """删除用户在所有向量模型版本下的知识库集合。"""
+    chroma_path = Path(CHROMDB_PATH)
+    if not chroma_path.exists():
+        return 0
+
+    client = chromadb.PersistentClient(path=CHROMDB_PATH)
+    prefix = f"user_{user_id}_docs_"
+    deleted_count = 0
+    for collection in client.list_collections():
+        collection_name = (
+            collection.name if hasattr(collection, "name") else str(collection)
+        )
+        if collection_name.startswith(prefix):
+            client.delete_collection(collection_name)
+            deleted_count += 1
+    return deleted_count
 
 
 def _document_ids(file_path: str, user_id: int, count: int) -> list[str]:

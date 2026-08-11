@@ -41,9 +41,11 @@ class AdminUserOut(BaseModel):
     balance: int = 0
     total_used: int = 0
     total_recharge: int = 0
+    total_refund: int = 0
     logo_balance: int = 0
     logo_total_used: int = 0
     logo_total_recharge: int = 0
+    logo_total_refund: int = 0
     created_at: datetime
     updated_at: datetime
     frozen_at: datetime | None = None

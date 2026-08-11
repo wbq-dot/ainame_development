@@ -7,7 +7,7 @@ from schemas.name_schemas import NameResultSchema
 from core.authtools import AuthHandler
 from dependencies import get_session
 from sqlalchemy.ext.asyncio import AsyncSession
-from repository.credit_repo import CreditRepository
+from repository.credit_repo import CreditRepository, InactiveUserError
 from core.workflow import generate_naming
 from schemas.name_schemas import FeedbackIn
 from core.workflow import (
@@ -15,6 +15,7 @@ from core.workflow import (
     WorkflowSessionCategoryError,
     WorkflowSessionNotFoundError,
     feedback_naming,
+    delete_naming_thread,
 )
 from core.rag_service import KnowledgeRetrievalUnavailableError
 
@@ -40,14 +41,24 @@ async def get_names(data:NameIn,user_id:int = Depends(auth_handler.auth_access_d
         except KnowledgeRetrievalUnavailableError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-        # 3.起名后，在账户中次数减1，日志中添加一条数据，消费成功
-        await creditRepository.consume_name_credit(user_id)
-
         thread_id = name_result.get("thread_id")   # 记忆的 id
         final_output = name_result.get("final_output")  # 起名结果
 
         if not final_output or "names" not in final_output:
             raise HTTPException(status_code=502, detail="模型没有返回有效的候选名字")
+
+        # 3.扣减次数和登记会话归属在同一业务库事务中完成。
+        try:
+            await creditRepository.consume_name_credit(user_id, thread_id=thread_id)
+        except Exception as exc:
+            # 业务事务失败时删除刚创建的外部检查点，避免产生无归属会话。
+            try:
+                await delete_naming_thread(thread_id)
+            except Exception:
+                pass
+            if isinstance(exc, InactiveUserError):
+                raise HTTPException(status_code=401, detail="账号已失效") from exc
+            raise
         return NameResultSchema(thread_id=thread_id, names=final_output["names"])
 
 
@@ -104,7 +115,14 @@ async def take_names_feedback(data:FeedbackIn    # 拿到客户的反馈意见�
 
 
       # 3.起名后，在账户中次数减1，日志中添加一条数据，消费成功
-      await creditRepository.consume_name_credit(user_id=user_id)
+      try:
+          await creditRepository.consume_name_credit(user_id=user_id)
+      except InactiveUserError as exc:
+          try:
+              await delete_naming_thread(data.thread_id)
+          except Exception:
+              pass
+          raise HTTPException(status_code=401, detail="账号已失效") from exc
 
 
       thread_id = name_result.get("thread_id")

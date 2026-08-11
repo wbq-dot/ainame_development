@@ -1,5 +1,12 @@
 from datetime import datetime
-from sqlalchemy import CheckConstraint, Integer, String, DateTime, ForeignKey
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, MappedColumn
 from . import Base
 
@@ -18,11 +25,15 @@ class UserCredit(Base):
 
     total_recharge:Mapped[int] = MappedColumn(Integer,default=0,nullable=False)
 
+    total_refund:Mapped[int] = MappedColumn(Integer,default=0,nullable=False)
+
     logo_balance:Mapped[int] = MappedColumn(Integer,default=0,nullable=False)
 
     logo_total_used:Mapped[int] = MappedColumn(Integer,default=0,nullable=False)
 
     logo_total_recharge:Mapped[int] = MappedColumn(Integer,default=0,nullable=False)
+
+    logo_total_refund:Mapped[int] = MappedColumn(Integer,default=0,nullable=False)
     # default=datetime.now,nullable=False   创建时就设定为创建的当下时间
     created_at:Mapped[datetime] = MappedColumn(DateTime,default=datetime.now,nullable=False)
     # default=datetime.now  创建时 updated_at 也填充为创建的当下时间    onupdate=datetime.now  当进行数据的修改，填充修改的当下时间
@@ -32,6 +43,11 @@ class CreditLog(Base):
     __tablename__ = "credit_log"
     __table_args__ = (
         CheckConstraint("credit_type IN ('name', 'logo')", name="ck_credit_log_credit_type"),
+        UniqueConstraint(
+            "source_type",
+            "source_id",
+            name="uq_credit_log_source_type_source_id",
+        ),
     )
 
     id:Mapped[int] = MappedColumn(Integer,primary_key=True,autoincrement=True)
@@ -47,6 +63,10 @@ class CreditLog(Base):
     type:Mapped[str]=MappedColumn(String(200),nullable=False)
 
     remark:Mapped[str]=MappedColumn(String(200),nullable=True)
+
+    source_type:Mapped[str | None] = MappedColumn(String(40), nullable=True)
+
+    source_id:Mapped[str | None] = MappedColumn(String(100), nullable=True)
 
     created_at:Mapped[datetime] = MappedColumn(DateTime,default=datetime.now,nullable=False)
 

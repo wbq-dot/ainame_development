@@ -13,6 +13,7 @@ class User(Base):
     _password:Mapped[str] = mapped_column(String(200))    # 加密处理
     role: Mapped[str] = mapped_column(String(20), default="user", nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False, index=True)
+    auth_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,

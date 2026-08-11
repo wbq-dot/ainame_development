@@ -23,6 +23,18 @@ from modules.admin.admin_schemas import (
     AdminBootstrapStatusOut,
     AdminUserListOut,
 )
+from repository.payment_repo import (
+    PaymentConflict,
+    PaymentNotFound,
+    PaymentRepository,
+    RefundNotEligible,
+)
+from schemas.pay_schemas import (
+    RefundListOut,
+    RefundOut,
+    RefundRejectIn,
+    RefundReviewIn,
+)
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -170,4 +182,76 @@ async def _change_status(
     except AdminTargetForbidden as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except AdminStateConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/refunds", response_model=RefundListOut)
+async def list_refunds(
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    keyword: Annotated[str | None, Query(max_length=100)] = None,
+    status: Literal["requested", "rejected", "processing", "succeeded", "failed"] | None = None,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    items, total = await PaymentRepository(session).list_admin_refunds(
+        page, page_size, status, keyword
+    )
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+@router.post(
+    "/refunds/{refund_no}/approve", response_model=RefundOut, status_code=202
+)
+async def approve_refund(
+    refund_no: str,
+    data: RefundReviewIn | None = None,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        refund, approved = await PaymentRepository(session).approve_refund(
+            refund_no,
+            admin_user_id,
+            data.reason if data else None,
+        )
+        if not approved:
+            raise HTTPException(status_code=409, detail=refund["review_note"])
+        return refund
+    except PaymentNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (PaymentConflict, RefundNotEligible) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/refunds/{refund_no}/reject", response_model=RefundOut)
+async def reject_refund(
+    refund_no: str,
+    data: RefundRejectIn,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        return await PaymentRepository(session).reject_refund(
+            refund_no, admin_user_id, data.reason
+        )
+    except PaymentNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PaymentConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/refunds/{refund_no}/retry", response_model=RefundOut, status_code=202)
+async def retry_refund(
+    refund_no: str,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        return await PaymentRepository(session).retry_refund(
+            refund_no, admin_user_id
+        )
+    except PaymentNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (PaymentConflict, RefundNotEligible) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

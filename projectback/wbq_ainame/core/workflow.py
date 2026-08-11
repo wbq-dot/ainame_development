@@ -306,6 +306,13 @@ async def close_workflow_graph():
         await connection_pool.close()   # 关闭连接池
 
 
+async def delete_naming_thread(thread_id: str) -> None:
+    """删除指定用户会话的全部 LangGraph 检查点。"""
+    if naming_graph is None or naming_graph.checkpointer is None:
+        raise RuntimeError("起名工作流尚未初始化")
+    await naming_graph.checkpointer.adelete_thread(thread_id)
+
+
 async def generate_naming(name_info: NameIn,user_id:int):
     """提供给 Router 调用的统一异步接口"""
     thread_id = str(uuid.uuid4())   # 自动的生成一个随机的id，每次生成的都不一样 uuid1 uuid3 uuid4 uuid5

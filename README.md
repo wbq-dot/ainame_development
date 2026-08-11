@@ -150,12 +150,68 @@ ADMIN_BOOTSTRAP_SECRET=********
 DEEP_SEEKER_API_KEY=********
 
 # 支付宝
+# 支付功能总开关。true 会在启动时校验支付宝配置并运行主动查单/查退任务；
+# false 会停用创建支付订单和后台支付对账。建议始终明确填写，不依赖默认值。
+PAYMENT_ENABLED=********
+
+# 支付宝运行环境，只能填写 sandbox 或 production。
+# sandbox 使用沙箱 SDK 模式和沙箱默认网关，production 使用正式环境。
+# 切换环境不会自动更换应用号、商户 PID 或密钥，必须将整套配置一起切换。
+ALIPAY_ENVIRONMENT=********
+
+# 支付宝开放平台应用 ID。异步通知和同步回跳中的 app_id 必须与此值一致。
+# 沙箱应用和生产应用使用不同的 App ID。
 ALIPAY_APP_ID=********
+
+# 实际收款商户的 PID/支付宝账户 ID，通常是以 2088 开头的数字。
+# 它不是 App ID，也不是支付宝登录邮箱；服务商模式下应填写实际收款商户 PID。
+ALIPAY_SELLER_ID=********
+
+# 可选的支付宝 API 网关覆盖地址。通常留空，由 ALIPAY_ENVIRONMENT 自动选择：
+# sandbox -> https://openapi-sandbox.dl.alipaydev.com/gateway.do
+# production -> https://openapi.alipay.com/gateway.do
+# 仅在使用代理或支付宝明确要求特殊网关时覆盖，配置错误会导致支付、查单和退款失败。
 ALIPAY_GATEWAY=********
+
+# 支付宝服务器异步通知地址，是正常订单唯一的入账依据。
+# 必须是支付宝能够访问的公网地址，正式环境建议使用有效 HTTPS；不能使用 127.0.0.1 或局域网地址。
+# 当前后端路由为 https://你的后端域名/pay/paySuccess，注意 paySuccess 中的 S 为大写。
+# 后端会依次校验 RSA2 签名、App ID、Seller ID、订单号、交易号、金额和交易状态。
 ALIPAY_NOTIFY_URL=********
+
+# 支付完成后的浏览器同步回跳地址，例如 https://你的后端域名/pay/success。
+# 该接口只验签并跳转前端结果页，不修改订单状态，也不发放次数；实际到账依赖异步通知或主动查单。
 ALIPAY_RETURN_URL=********
+
+# RSA2 应用私钥，用于签署本应用发给支付宝的请求，必须严格保密。
+# 当前代码会自动补充 PEM 头尾，应只填写密钥中间的 Base64 正文，不能带 BEGIN/END 行。
 ALIPAY_APP_PRIVATE_KEY=********
+
+# 支付宝公钥，用于验证支付宝响应和回调签名。
+# 必须填写开放平台提供的“支付宝公钥”，不能误填本应用的“应用公钥”。
 ALIPAY_PUBLIC_KEY=********
+
+# 同步回跳验签后最终进入的 UniApp 支付结果页。
+# H5 本地示例：http://127.0.0.1:8080/#/pages/payment/result；生产环境应换成正式前端地址。
+# 后端会自动附加 order_no 和 verified 参数，前端据此轮询订单状态。
+PAYMENT_FRONTEND_RESULT_URL=********
+
+# 支付订单有效期，单位为分钟，默认 60，最小 1。
+# 该值同时用于本地 expires_at 和支付宝 timeout_express；过期待支付订单会由查单任务确认并关闭。
+# 已关闭订单若后续确认付款，将进入自动退款流程，不会直接发放次数。
+PAYMENT_ORDER_TIMEOUT_MINUTES=********
+
+# 后台主动查单/查退任务的扫描间隔，单位为秒，默认 30，代码限制最小 10。
+# 它是任务扫描频率，不是单条失败记录的固定重试间隔；失败记录按数据库中的退避时间重试。
+PAYMENT_RECONCILE_INTERVAL_SECONDS=********
+
+# 每个后台进程每轮最多领取的待查订单数和待查退款数，默认 50，允许范围 1～100。
+# 多进程通过数据库行锁和租约避免同时处理同一条记录。
+PAYMENT_RECONCILE_BATCH_SIZE=********
+
+# 用户从订单 paid_at 开始可提交整单退款申请的时限，单位为小时，默认 24，最小 1。
+# 该值只决定申请资格，退款仍需管理员审批，且审批时会重新校验对应类型的次数余额。
+REFUND_WINDOW_HOURS=********
 
 # 本地目录
 CHROMDB_PATH=********
@@ -185,7 +241,10 @@ APP_BASE_URL=********
 | `JWT_SECRET_KEY` | 登录令牌签名密钥；生产环境必须使用足够长的随机值 |
 | `ADMIN_BOOTSTRAP_SECRET` | 首任管理员网页初始化密钥；不配置时初始化入口关闭，创建成功后接口不再允许初始化 |
 | `DEEP_SEEKER_API_KEY` | DeepSeek 模型接口密钥 |
-| `ALIPAY_*` | 支付宝应用、网关、回调地址和签名密钥 |
+| `PAYMENT_ENABLED`、`ALIPAY_*` | 支付开关、沙箱/生产环境、应用与商户身份、回调地址和签名密钥 |
+| `PAYMENT_FRONTEND_RESULT_URL` | 支付宝同步回跳验签后跳转的 UniApp 支付结果页 |
+| `PAYMENT_ORDER_TIMEOUT_MINUTES`、`PAYMENT_RECONCILE_*` | 订单有效期、主动查单/查退周期和批次大小 |
+| `REFUND_WINDOW_HOURS` | 用户提交整单退款申请的时限，默认24小时 |
 | `CHROMDB_PATH` | Chroma 向量数据库的本地保存目录 |
 | `UPLOAD_FOLDER` | 上传文件的本地保存目录 |
 | `POST_GRESQL_DB` | PostgreSQL 连接地址，供工作流等功能使用 |
