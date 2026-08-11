@@ -200,7 +200,11 @@ class RagWorkerTests(unittest.IsolatedAsyncioTestCase):
             rag_worker,
             "process_and_store_file",
             return_value=2,
-        ) as process:
+        ) as process, patch.object(
+            rag_worker,
+            "user_is_active",
+            return_value=True,
+        ):
             await rag_worker.process_message(message)
         self.assertTrue(message.acked)
         self.assertFalse(message.rejected)
@@ -212,11 +216,30 @@ class RagWorkerTests(unittest.IsolatedAsyncioTestCase):
             rag_worker,
             "process_and_store_file",
             side_effect=RuntimeError("test failure"),
+        ), patch.object(
+            rag_worker,
+            "user_is_active",
+            return_value=True,
         ):
             await rag_worker.process_message(message)
         self.assertFalse(message.acked)
         self.assertTrue(message.rejected)
         self.assertFalse(message.requeue)
+
+    async def test_deleted_user_task_is_acknowledged_without_processing(self):
+        message = FakeMessage({"user_id": 7, "file_path": "example.txt"})
+        with patch.object(
+            rag_worker,
+            "process_and_store_file",
+        ) as process, patch.object(
+            rag_worker,
+            "user_is_active",
+            return_value=False,
+        ):
+            await rag_worker.process_message(message)
+        self.assertTrue(message.acked)
+        self.assertFalse(message.rejected)
+        process.assert_not_called()
 
 
 if __name__ == "__main__":

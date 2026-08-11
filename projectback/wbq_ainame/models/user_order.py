@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy import CheckConstraint, Integer, String, DateTime, ForeignKey, Numeric
 from sqlalchemy.orm import Mapped, mapped_column
@@ -7,6 +7,10 @@ class UserOrder(Base):
     __tablename__ = "user_order"
     __table_args__ = (
         CheckConstraint("credit_type IN ('name', 'logo')", name="ck_user_order_credit_type"),
+        CheckConstraint(
+            "status IN ('pending', 'paid', 'closed', 'refunding', 'refunded')",
+            name="ck_user_order_status",
+        ),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True,autoincrement=True)
     # 系统内部订单号   字符串类型可以任意的长度，不限制字符类型
@@ -24,8 +28,22 @@ class UserOrder(Base):
     # 订单状态：pending 待支付，paid 已支付，closed 已关闭
     status: Mapped[str] = mapped_column(String(20), default="pending",nullable=False)
     # 支付宝交易号 只有付款才有交易号
-    alipay_trade_no: Mapped[str] = mapped_column(String(100),nullable=True)
+    alipay_trade_no: Mapped[str | None] = mapped_column(
+        String(100), unique=True, nullable=True
+    )
     # 创建时间
     created_at: Mapped[datetime] = mapped_column(DateTime,default=datetime.now,nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now() + timedelta(hours=1),
+        nullable=False,
+        index=True,
+    )
     # 支付时间 可以为空  只有付款才有付款时间
     paid_at: Mapped[datetime | None] = mapped_column(DateTime,nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    next_reconcile_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, index=True
+    )
+    reconcile_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_reconcile_error: Mapped[str | None] = mapped_column(String(1000), nullable=True)

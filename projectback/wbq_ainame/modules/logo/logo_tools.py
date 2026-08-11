@@ -63,7 +63,12 @@ def pick_image_url(data: dict) -> str:
     return ""
 
 
-def generate_company_logo(company_name: str, style_feedback: str = "", **brief) -> dict:
+def generate_company_logo(
+    company_name: str,
+    style_feedback: str = "",
+    user_id: int | None = None,
+    **brief,
+) -> dict:
     logo_prompt = build_logo_prompt(company_name, style_feedback, **brief)
 
     # 没有配置 api 不能调大模型
@@ -131,7 +136,8 @@ def generate_company_logo(company_name: str, style_feedback: str = "", **brief) 
             image_response = client.get(image_url)  # 得到图片的二进制返回数据
             image_response.raise_for_status()
 
-        file_name = f"{uuid4().hex}.png"  #图片的随机 ID 号
+        owner_prefix = f"user_{user_id}_" if user_id is not None else ""
+        file_name = f"{owner_prefix}{uuid4().hex}.png"  #图片的随机 ID 号
         file_path = LOGO_DIR / file_name  # 图片的位置
         file_path.write_bytes(image_response.content)  # 将图片的二进制数据转成 png 图片放入到指定位置中
 
@@ -139,6 +145,7 @@ def generate_company_logo(company_name: str, style_feedback: str = "", **brief) 
             "logo_prompt": logo_prompt,
             "logo_url": f"{settings.APP_BASE_URL}/static/logos/{file_name}",  # 本地服务器存放的图片路由
             "logo_status": "生成成功",
+            "logo_file_name": file_name,
         }
 
     # 超时的报错

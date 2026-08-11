@@ -76,6 +76,7 @@ class LogoCreditTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.object(logo_router, "CreditRepository", FakeCreditRepository),
             patch.object(logo_router, "run_in_threadpool", fake_model_call),
+            patch.object(logo_router, "account_is_active", return_value=True),
         ):
             result = await logo_router.generate_logo(
                 LogoGenerateIn(company_name="测试企业"),
@@ -86,6 +87,28 @@ class LogoCreditTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(2, result["remaining_logo_balance"])
         self.assertEqual(1, result["credit_cost"])
         self.assertEqual(0, FakeCreditRepository.refund_calls)
+
+    async def test_deleted_during_generation_does_not_return_logo(self):
+        async def fake_model_call(*args, **kwargs):
+            return {
+                "logo_prompt": "测试提示词",
+                "logo_url": "https://example.com/logo.png",
+                "logo_status": "生成成功",
+            }
+
+        with (
+            patch.object(logo_router, "CreditRepository", FakeCreditRepository),
+            patch.object(logo_router, "run_in_threadpool", fake_model_call),
+            patch.object(logo_router, "account_is_active", return_value=False),
+        ):
+            with self.assertRaises(HTTPException) as context:
+                await logo_router.generate_logo(
+                    LogoGenerateIn(company_name="测试企业"),
+                    user_id=7,
+                    session=object(),
+                )
+
+        self.assertEqual(401, context.exception.status_code)
 
     async def test_failed_generation_refunds_credit(self):
         async def fake_model_call(*args, **kwargs):

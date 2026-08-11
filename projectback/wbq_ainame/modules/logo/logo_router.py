@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 
 from core.authtools import AuthHandler
@@ -7,10 +8,17 @@ from modules.logo.logo_tools import generate_company_logo
 from dependencies import get_session
 from repository.credit_repo import CreditRepository, LOGO_CREDIT_COST
 from modules.logo.logo_schemas import LogoGenerateIn, LogoGenerateOut
+from modules.logo.logo_tools import LOGO_DIR
+from models.User import User
 
 
 router = APIRouter(prefix="/logos", tags=["logos"])
 auth_handler = AuthHandler()
+
+
+async def account_is_active(session: AsyncSession, user_id: int) -> bool:
+    status = await session.scalar(select(User.status).where(User.id == user_id))
+    return status == "active"
 
 
 @router.post("/generate", response_model=LogoGenerateOut)
@@ -36,6 +44,7 @@ async def generate_logo(
         logo = await run_in_threadpool(
             generate_company_logo,
             company_name=company_name,
+            user_id=user_id,
             **data.model_dump(exclude={"company_name"}),
         )
     except Exception as exc:
@@ -52,6 +61,13 @@ async def generate_logo(
             status_code=502,
             detail=f"{status}；本次Logo次数已退回",
         )
+
+    # 模型调用期间用户可能从其他设备注销；不要在注销清理后写回新文件。
+    if not await account_is_active(session, user_id):
+        file_name = logo.get("logo_file_name")
+        if file_name:
+            (LOGO_DIR / file_name).unlink(missing_ok=True)
+        raise HTTPException(status_code=401, detail="账号已失效")
 
     return {
         "company_name": company_name,

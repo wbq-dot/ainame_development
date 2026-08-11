@@ -28,7 +28,7 @@ class FakeSession:
 
 
 class OrderCleanupTests(unittest.IsolatedAsyncioTestCase):
-    async def test_only_expired_pending_orders_are_deleted(self):
+    async def test_only_expired_pending_orders_are_closed_and_retained(self):
         session = FakeSession()
 
         deleted_count = await OrderRepo(session).delete_expired_pending_orders()
@@ -42,9 +42,10 @@ class OrderCleanupTests(unittest.IsolatedAsyncioTestCase):
         normalized_sql = " ".join(sql.lower().split())
 
         self.assertEqual(3, deleted_count)
-        self.assertIn("delete from user_order", normalized_sql)
+        self.assertIn("update user_order", normalized_sql)
+        self.assertIn("set status='closed'", normalized_sql)
         self.assertIn("user_order.status = 'pending'", normalized_sql)
-        self.assertIn("date_sub(now(), interval 1 hour)", normalized_sql)
+        self.assertIn("user_order.expires_at <= now()", normalized_sql)
 
 
 if __name__ == "__main__":
