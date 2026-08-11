@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from modules.logo import logo_router
 from modules.logo.logo_schemas import LogoGenerateIn
+from modules.logo.logo_tools import build_logo_prompt
 
 
 class FakeCreditRepository:
@@ -30,6 +31,21 @@ class LogoCreditTests(unittest.IsolatedAsyncioTestCase):
         FakeCreditRepository.consume_result = 0
         FakeCreditRepository.consume_error = None
         FakeCreditRepository.refund_calls = 0
+
+    def test_rich_brand_brief_is_included_in_prompt(self):
+        prompt = build_logo_prompt(
+            "青衍科技",
+            industry="人工智能",
+            brand_personality="可信、克制",
+            logo_style="几何科技",
+            primary_colors="深海科技",
+            graphic_elements="向上生长的线条",
+            usage_scenes="App 图标、官网",
+        )
+        self.assertIn("人工智能", prompt)
+        self.assertIn("几何科技", prompt)
+        self.assertIn("向上生长的线条", prompt)
+        self.assertIn("App 图标、官网", prompt)
 
     async def test_insufficient_credit_does_not_call_model(self):
         FakeCreditRepository.consume_error = ValueError("Logo次数不足")

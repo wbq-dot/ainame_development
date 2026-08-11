@@ -1,25 +1,33 @@
 <template>
   <view class="page-shell logo-page">
-    <view class="logo-hero">
-      <view class="hero-copy"><view class="hero-tag">LOGO STUDIO</view><view class="hero-title">让品牌拥有<br />自己的视觉符号</view><view class="hero-desc">名称与风格交给你，构图与灵感交给 AI。</view></view>
-      <view class="mark-art"><view class="mark-circle"></view><view class="mark-square">Z</view><view class="mark-star">✦</view><view class="mark-line"></view></view>
-    </view>
-
-    <view v-if="!loggedIn" class="card login-callout"><view class="login-icon">钥</view><view class="card-title">登录后进入 Logo 工作室</view><view class="card-note">生成作品和剩余次数都与你的账号绑定。</view><button class="primary-btn btn-gap" @click="goLogin">登录 / 注册</button></view>
-
+    <view class="logo-hero"><view class="hero-copy"><view class="hero-tag">LOGO PATTERN LAB</view><view class="hero-title">Logo 图案<br/>品牌视觉创作室</view><view class="hero-desc">从品牌定位、颜色、图形语言到使用场景，生成更准确的视觉符号。</view></view><view class="mark-art"><view class="mark-ring"></view><view class="mark-core">图</view><view class="mark-dot dot-a"></view><view class="mark-dot dot-b"></view><view class="mark-star">✦</view></view></view>
+    <view v-if="!loggedIn" class="card login-callout"><view class="login-icon">钥</view><view class="card-title">登录后进入 Logo 图案工作室</view><view class="card-note">品牌简报、生成作品和剩余次数都与你的账号绑定。</view><button class="primary-btn btn-gap" @click="goLogin">登录 / 注册</button></view>
     <template v-else>
-      <view class="credit-bar"><view><view class="credit-caption">可用 Logo 次数</view><view class="credit-value">{{ logoBalance }}</view></view><view class="credit-cost">每次消耗 1 次</view></view>
+      <view class="credit-bar"><view><view class="credit-caption">可用 Logo 次数</view><view class="credit-value">{{ logoBalance }}</view></view><view class="credit-cost">每次生成消耗 1 次</view></view>
+      <view class="progress-card"><view v-for="(item,index) in steps" :key="item" class="progress-step"><view class="step-number">{{ index+1 }}</view><text>{{ item }}</text></view></view>
       <view class="card form-card">
-        <view class="form-heading"><view><view class="section-number">01</view><view class="card-title">描述你的品牌</view></view><view class="palette"><text></text><text></text><text></text></view></view>
-        <view class="field"><text class="field-label">企业名称</text><input v-model.trim="logoForm.company_name" class="field-input" maxlength="50" placeholder="例如：青衍科技" /></view>
-        <view class="field"><text class="field-label">风格要求（选填）</text><textarea v-model.trim="logoForm.style_feedback" class="field-textarea" maxlength="300" placeholder="例如：蓝紫渐变、科技感、图形简洁，不要文字" /><view class="counter">{{ logoForm.style_feedback.length }}/300</view></view>
-        <view class="style-suggestions"><text v-for="item in styles" :key="item" @click="appendStyle(item)">{{ item }}</text></view>
-        <view class="notice"><text>!</text><view>确认后先扣除 1 次；如果生成失败，后端会自动退回。</view></view>
-        <button class="primary-btn btn-gap" :loading="logoLoading" :disabled="logoLoading || !logoForm.company_name || logoBalance <= 0" @click="confirmGenerateLogo">{{ logoBalance > 0 ? '生成 Logo（消耗 1 次）' : 'Logo 次数不足' }}</button>
-        <button v-if="logoBalance <= 0" class="secondary-btn btn-gap" @click="goBuyLogo">购买 Logo 套餐</button>
+        <view class="form-heading"><view><view class="section-number">01 · BRAND</view><view class="card-title">品牌基础</view></view><view class="palette"><text></text><text></text><text></text></view></view>
+        <view class="field"><text class="field-label">品牌 / 企业名称 *</text><input v-model.trim="logoForm.company_name" class="field-input" maxlength="100" placeholder="例如：青衍科技"/></view>
+        <view class="field"><text class="field-label">品牌口号</text><input v-model.trim="logoForm.slogan" class="field-input" maxlength="100" placeholder="例如：让灵感成为品牌资产"/></view>
+        <view class="field"><text class="field-label">所属行业</text><input v-model.trim="logoForm.industry" class="field-input" maxlength="100" placeholder="例如：人工智能、茶饮、文化创意"/></view>
+        <view class="field"><text class="field-label">品牌气质</text><input v-model.trim="logoForm.brand_personality" class="field-input" maxlength="300" placeholder="例如：可信、克制、年轻、有东方审美"/></view>
       </view>
-
-      <view v-if="logoResult" class="result-wrap"><view class="result-title">本次作品</view><view class="logo-frame"><image v-if="logoResult.logo_url" class="logo-image" :src="logoResult.logo_url" mode="aspectFit" @click="previewLogo" /><view v-else class="logo-empty">没有返回图片</view><view class="corner corner-a"></view><view class="corner corner-b"></view></view><view class="logo-status">{{ logoResult.logo_status }}</view><view class="prompt-box"><view class="prompt-title">实际生成提示词</view><view class="prompt-content">{{ logoResult.logo_prompt }}</view></view></view>
+      <view class="card form-card">
+        <view class="form-heading"><view><view class="section-number">02 · VISUAL</view><view class="card-title">视觉方向</view></view></view>
+        <view class="field"><text class="field-label">图案风格 *</text><view class="visual-grid"><view v-for="item in styles" :key="item.name" class="visual-style" :class="{active:logoForm.logo_style===item.name}" @click="logoForm.logo_style=item.name"><view class="style-symbol" :class="item.className">{{ item.symbol }}</view><text>{{ item.name }}</text></view></view></view>
+        <view class="field"><text class="field-label">主色方案</text><view class="color-grid"><view v-for="item in colors" :key="item.name" class="color-option" :class="{active:logoForm.primary_colors===item.name}" @click="logoForm.primary_colors=item.name"><view class="color-swatches"><text v-for="color in item.values" :key="color" :style="{background:color}"></text></view><view>{{ item.name }}</view></view></view></view>
+        <view class="field"><text class="field-label">希望出现的图形元素</text><input v-model.trim="logoForm.graphic_elements" class="field-input" maxlength="300" placeholder="例如：山、水纹、向上生长的线条、字母抽象结构"/></view>
+        <view class="field"><text class="field-label">明确不要的元素</text><input v-model.trim="logoForm.forbidden_elements" class="field-input" maxlength="300" placeholder="例如：不要盾牌、人物、复杂渐变"/></view>
+      </view>
+      <view class="card form-card">
+        <view class="form-heading"><view><view class="section-number">03 · OUTPUT</view><view class="card-title">输出场景与补充</view></view></view>
+        <view class="field"><text class="field-label">主要使用场景</text><view class="scene-row"><view v-for="item in scenes" :key="item" class="scene-chip" :class="{active:selectedScenes.includes(item)}" @click="toggleScene(item)">{{ item }}</view></view></view>
+        <view class="field"><text class="field-label">其他设计要求</text><textarea v-model.trim="logoForm.style_feedback" class="field-textarea" maxlength="1000" placeholder="例如：图形要适合小尺寸头像，保持识别度，不包含文字"/><view class="counter">{{ logoForm.style_feedback.length }}/1000</view></view>
+        <view class="brief-preview"><view class="brief-title">创作摘要</view><view class="brief-name">{{ logoForm.company_name || '未命名品牌' }}</view><view class="brief-tags"><text>{{ logoForm.industry || '行业待补充' }}</text><text>{{ logoForm.logo_style }}</text><text>{{ logoForm.primary_colors || '智能配色' }}</text></view><view class="brief-text">{{ briefSummary }}</view></view>
+        <view class="notice"><text>!</text><view>确认后先扣除 1 次 Logo 次数；模型未返回有效图片时，后端自动退回。</view></view>
+        <button class="primary-btn btn-gap" :loading="logoLoading" :disabled="logoLoading||!logoForm.company_name||logoBalance<=0" @click="confirmGenerateLogo">{{ logoBalance>0?'生成 Logo 图案（消耗 1 次）':'Logo 次数不足' }}</button><button v-if="logoBalance<=0" class="secondary-btn btn-gap" @click="goBuyLogo">购买 Logo 套餐</button>
+      </view>
+      <view v-if="logoResult" class="result-wrap"><view class="result-head"><view><view class="result-kicker">CREATION RESULT</view><view class="result-title">本次 Logo 图案</view></view><view class="result-actions"><view @click="previewLogo">全屏查看</view><view @click="copyPrompt">复制提示词</view></view></view><view class="logo-frame"><image v-if="logoResult.logo_url" class="logo-image" :src="logoResult.logo_url" mode="aspectFit" @click="previewLogo"/><view v-else class="logo-empty">没有返回图片</view><view class="corner corner-a"></view><view class="corner corner-b"></view></view><view class="logo-status">{{ logoResult.logo_status }}</view><view class="prompt-box"><view class="prompt-title">实际生成提示词</view><view class="prompt-content">{{ logoResult.logo_prompt }}</view></view><button class="secondary-btn btn-gap" :disabled="logoLoading||logoBalance<=0" @click="confirmGenerateLogo">沿用简报再生成一版</button></view>
     </template>
   </view>
 </template>
@@ -27,71 +35,14 @@
 <script>
 import { api } from '../../api'
 import { getAccessToken, requireLogin } from '../../utils/auth'
-
 export default {
-  data() { return { loggedIn: false, logoBalance: 0, logoLoading: false, logoForm: { company_name: '', style_feedback: '' }, logoResult: null, styles: ['极简', '科技感', '自然', '高级感'] } },
-  onShow() { this.loggedIn = Boolean(getAccessToken()); if (this.loggedIn) this.loadBalance() },
-  methods: {
-    goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) },
-    async loadBalance() { try { const data = await api.getBalance(); this.logoBalance = data.logo_balance ?? 0 } catch (error) { uni.showToast({ title: error.message, icon: 'none' }) } },
-    goBuyLogo() { uni.setStorageSync('account_package_type', 'logo'); uni.switchTab({ url: '/pages/account/index' }) },
-    appendStyle(style) { const current = this.logoForm.style_feedback.trim(); if (!current.includes(style)) this.logoForm.style_feedback = current ? `${current}、${style}` : style },
-    confirmGenerateLogo() {
-      if (!requireLogin()) return
-      if (this.logoBalance <= 0) { this.goBuyLogo(); return }
-      uni.showModal({ title: '确认生成 Logo', content: `准确动作：\n1. 为“${this.logoForm.company_name}”调用图片模型；\n2. 先扣除 1 次 Logo 次数；\n3. 失败时自动退回。\n\n生成后预计剩余 ${Math.max(0, this.logoBalance - 1)} 次，是否继续？`, confirmText: '确认生成', success: ({ confirm }) => { if (confirm) this.generateLogo() } })
-    },
-    async generateLogo() {
-      this.logoLoading = true; this.logoResult = null
-      try { this.logoResult = await api.generateLogo(this.logoForm); this.logoBalance = this.logoResult.remaining_logo_balance; uni.showToast({ title: this.logoResult.logo_status, icon: this.logoResult.logo_url ? 'success' : 'none' }) }
-      catch (error) { uni.showToast({ title: error.message, icon: 'none', duration: 3200 }) }
-      finally { await this.loadBalance(); this.logoLoading = false }
-    },
-    previewLogo() { uni.previewImage({ urls: [this.logoResult.logo_url], current: this.logoResult.logo_url }) }
-  }
+  data() { return { loggedIn:false,logoBalance:0,logoLoading:false,logoResult:null,steps:['品牌定位','视觉语言','生成图案'],styles:[{name:'极简现代',symbol:'○',className:'minimal'},{name:'东方雅韵',symbol:'山',className:'oriental'},{name:'几何科技',symbol:'◇',className:'tech'},{name:'自然有机',symbol:'叶',className:'nature'},{name:'轻奢精品',symbol:'✦',className:'luxury'},{name:'活力潮流',symbol:'↗',className:'vivid'}],colors:[{name:'深海科技',values:['#19264a','#496ce8','#8dd8ff']},{name:'东方朱砂',values:['#702f36','#c65d54','#f0c49b']},{name:'自然森林',values:['#1f5142','#65a27c','#d7dfad']},{name:'黑金质感',values:['#171717','#a8874e','#eee2c1']},{name:'柔和清新',values:['#796aa9','#d49cba','#f6ded4']}],scenes:['App 图标','官网','名片','产品包装','门店招牌','社交头像'],selectedScenes:['App 图标','官网','名片'],logoForm:{company_name:'',slogan:'',industry:'',brand_personality:'',logo_style:'极简现代',primary_colors:'深海科技',graphic_elements:'',forbidden_elements:'',usage_scenes:'App 图标、官网、名片',style_feedback:''} } },
+  computed:{briefSummary(){const parts=[this.logoForm.brand_personality&&`气质：${this.logoForm.brand_personality}`,this.logoForm.graphic_elements&&`元素：${this.logoForm.graphic_elements}`,this.selectedScenes.length&&`用于：${this.selectedScenes.join('、')}`].filter(Boolean);return parts.join('；')||'继续补充品牌气质和图形元素，模型会更准确理解你的方向。'}},
+  onShow(){this.loggedIn=Boolean(getAccessToken());if(this.loggedIn)this.loadBalance()},
+  methods:{goLogin(){uni.navigateTo({url:'/pages/auth/login'})},async loadBalance(){try{const data=await api.getBalance();this.logoBalance=data.logo_balance??0}catch(error){uni.showToast({title:error.message,icon:'none'})}},goBuyLogo(){uni.setStorageSync('account_package_type','logo');uni.switchTab({url:'/pages/account/index'})},toggleScene(item){const index=this.selectedScenes.indexOf(item);if(index>=0)this.selectedScenes.splice(index,1);else this.selectedScenes.push(item);this.logoForm.usage_scenes=this.selectedScenes.join('、')},confirmGenerateLogo(){if(!requireLogin())return;if(this.logoBalance<=0){this.goBuyLogo();return}uni.showModal({title:'确认生成 Logo 图案',content:`准确动作：\n1. 按“${this.logoForm.company_name}”的完整品牌简报调用图片模型；\n2. 先扣除 1 次 Logo 次数；\n3. 生成失败自动退回。\n\n预计剩余 ${Math.max(0,this.logoBalance-1)} 次，是否继续？`,confirmText:'确认生成',success:({confirm})=>{if(confirm)this.generateLogo()}})},async generateLogo(){this.logoLoading=true;this.logoResult=null;try{this.logoForm.usage_scenes=this.selectedScenes.join('、');this.logoResult=await api.generateLogo(this.logoForm);this.logoBalance=this.logoResult.remaining_logo_balance;uni.pageScrollTo({scrollTop:99999,duration:300});uni.showToast({title:this.logoResult.logo_status,icon:this.logoResult.logo_url?'success':'none'})}catch(error){uni.showToast({title:error.message,icon:'none',duration:3200})}finally{await this.loadBalance();this.logoLoading=false}},previewLogo(){if(this.logoResult&&this.logoResult.logo_url)uni.previewImage({urls:[this.logoResult.logo_url],current:this.logoResult.logo_url})},copyPrompt(){if(this.logoResult)uni.setClipboardData({data:this.logoResult.logo_prompt})}}
 }
 </script>
 
 <style scoped>
-.logo-page { background: radial-gradient(circle at 96% 2%, #ffead9 0, transparent 27%), #f5f7fb; }
-.logo-hero { position: relative; min-height: 280rpx; padding: 36rpx; overflow: hidden; color: #fff; background: linear-gradient(140deg, #3f285c, #7b487b 55%, #dd7b72); border-radius: 35rpx; box-shadow: 0 21rpx 48rpx rgba(100,55,100,.2); }
-.hero-copy { position: relative; z-index: 2; width: 65%; }
-.hero-tag { color: #f5c8dd; font-size: 18rpx; font-weight: 850; letter-spacing: 3rpx; }
-.hero-title { margin-top: 18rpx; font-size: 39rpx; font-weight: 900; line-height: 1.45; }
-.hero-desc { margin-top: 14rpx; color: #f7dce8; font-size: 21rpx; line-height: 1.55; }
-.mark-art { position: absolute; top: 0; right: 0; width: 270rpx; height: 100%; }
-.mark-circle { position: absolute; top: 48rpx; right: -35rpx; width: 210rpx; height: 210rpx; background: rgba(255,204,142,.26); border: 3rpx solid rgba(255,255,255,.24); border-radius: 50%; }
-.mark-square { position: absolute; top: 82rpx; right: 38rpx; display: flex; align-items: center; justify-content: center; width: 108rpx; height: 108rpx; color: #704064; background: #ffcf8c; border-radius: 32rpx; box-shadow: 0 15rpx 28rpx rgba(44,22,63,.25); font-size: 61rpx; font-weight: 900; transform: rotate(12deg); }
-.mark-star { position: absolute; top: 29rpx; right: 154rpx; font-size: 38rpx; }
-.mark-line { position: absolute; right: 153rpx; bottom: 41rpx; width: 62rpx; height: 13rpx; background: #8ee0cb; border-radius: 20rpx; transform: rotate(-25deg); }
-.login-callout { padding: 50rpx 34rpx; text-align: center; }
-.login-icon { display: flex; align-items: center; justify-content: center; width: 86rpx; height: 86rpx; margin: 0 auto 22rpx; color: #8d4c72; background: #ffe8ef; border-radius: 25rpx; font-weight: 850; }
-.credit-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 23rpx; padding: 25rpx 28rpx; color: #fff; background: linear-gradient(135deg, #392855, #70476f); border-radius: 26rpx; }
-.credit-caption { color: #e7d6e4; font-size: 20rpx; }
-.credit-value { margin-top: 3rpx; font-size: 42rpx; font-weight: 900; }
-.credit-cost { padding: 11rpx 17rpx; color: #70476f; background: #fff; border-radius: 999rpx; font-size: 20rpx; font-weight: 750; }
-.form-card { padding: 31rpx; }
-.form-heading { display: flex; align-items: center; justify-content: space-between; }
-.section-number { color: #bd7696; font-size: 18rpx; font-weight: 900; letter-spacing: 2rpx; }
-.palette { display: flex; gap: 8rpx; }
-.palette text { width: 25rpx; height: 25rpx; background: #70476f; border-radius: 50%; }
-.palette text:nth-child(2) { background: #ee9f83; }
-.palette text:nth-child(3) { background: #f2c879; }
-.counter { margin-top: 7rpx; color: #a09aaa; font-size: 19rpx; text-align: right; }
-.style-suggestions { display: flex; flex-wrap: wrap; gap: 11rpx; margin-top: 16rpx; }
-.style-suggestions text { padding: 11rpx 18rpx; color: #85506e; background: #fff0f4; border-radius: 999rpx; font-size: 20rpx; }
-.notice { display: flex; gap: 13rpx; margin-top: 23rpx; padding: 18rpx; color: #795c2f; background: #fff7e9; border-radius: 17rpx; font-size: 21rpx; line-height: 1.55; }
-.notice > text { font-weight: 900; }
-.result-wrap { margin-top: 32rpx; }
-.result-title { font-size: 32rpx; font-weight: 850; }
-.logo-frame { position: relative; margin-top: 18rpx; padding: 15rpx; background: #fff; border-radius: 29rpx; box-shadow: 0 14rpx 40rpx rgba(75,43,74,.1); }
-.logo-image,.logo-empty { width: 100%; height: 560rpx; background: linear-gradient(135deg,#faf7f4,#f5eef4); border-radius: 22rpx; }
-.logo-empty { display: flex; align-items: center; justify-content: center; color: #a49aa3; }
-.corner { position: absolute; width: 42rpx; height: 42rpx; border-color: #d88799; }
-.corner-a { top: 28rpx; left: 28rpx; border-top: 5rpx solid; border-left: 5rpx solid; }
-.corner-b { right: 28rpx; bottom: 28rpx; border-right: 5rpx solid; border-bottom: 5rpx solid; }
-.logo-status { margin-top: 16rpx; color: #84506f; font-size: 24rpx; font-weight: 750; text-align: center; }
-.prompt-box { margin-top: 20rpx; padding: 22rpx; background: #f5f0f4; border-radius: 19rpx; }
-.prompt-title { font-size: 23rpx; font-weight: 780; }
-.prompt-content { margin-top: 10rpx; color: #756b76; font-size: 21rpx; line-height: 1.65; white-space: pre-wrap; }
+.logo-page{background:radial-gradient(circle at 96% 2%,#ffead9 0,transparent 27%),#f5f7fb}.logo-hero{position:relative;min-height:300rpx;padding:38rpx;overflow:hidden;color:#fff;background:linear-gradient(140deg,#30244e,#70406f 55%,#d17169);border-radius:35rpx;box-shadow:0 21rpx 48rpx rgba(100,55,100,.2)}.hero-copy{position:relative;z-index:2;width:69%}.hero-tag{color:#f5c8dd;font-size:17rpx;font-weight:850;letter-spacing:3rpx}.hero-title{margin-top:17rpx;font-size:40rpx;font-weight:900;line-height:1.4}.hero-desc{margin-top:13rpx;color:#f7dce8;font-size:20rpx;line-height:1.55}.mark-art{position:absolute;top:0;right:0;width:270rpx;height:100%}.mark-ring{position:absolute;top:49rpx;right:-28rpx;width:210rpx;height:210rpx;border:4rpx solid rgba(255,255,255,.3);border-radius:50%}.mark-core{position:absolute;top:88rpx;right:39rpx;display:flex;align-items:center;justify-content:center;width:110rpx;height:110rpx;color:#64395e;background:#ffcf8c;border-radius:35rpx;font-size:48rpx;font-weight:900;transform:rotate(10deg)}.mark-dot{position:absolute;width:21rpx;height:21rpx;background:#8ee0cb;border-radius:50%}.dot-a{top:52rpx;right:172rpx}.dot-b{right:181rpx;bottom:51rpx;background:#f8bdd0}.mark-star{position:absolute;top:25rpx;right:75rpx;font-size:34rpx}.login-callout{padding:50rpx 34rpx;text-align:center}.login-icon{display:flex;align-items:center;justify-content:center;width:86rpx;height:86rpx;margin:0 auto 22rpx;color:#8d4c72;background:#ffe8ef;border-radius:25rpx}.credit-bar{display:flex;align-items:center;justify-content:space-between;margin-top:23rpx;padding:25rpx 28rpx;color:#fff;background:linear-gradient(135deg,#392855,#70476f);border-radius:26rpx}.credit-caption{color:#e7d6e4;font-size:20rpx}.credit-value{margin-top:3rpx;font-size:42rpx;font-weight:900}.credit-cost{padding:11rpx 17rpx;color:#70476f;background:#fff;border-radius:999rpx;font-size:19rpx;font-weight:750}.progress-card{display:flex;margin-top:17rpx;padding:19rpx;background:#fff;border-radius:20rpx}.progress-step{display:flex;flex:1;align-items:center;gap:8rpx;color:#747d8e;font-size:18rpx}.step-number{display:flex;align-items:center;justify-content:center;width:35rpx;height:35rpx;color:#fff;background:#85506e;border-radius:11rpx;font-size:16rpx}.form-card{padding:31rpx}.form-heading{display:flex;align-items:center;justify-content:space-between}.section-number{color:#bd7696;font-size:17rpx;font-weight:900;letter-spacing:2rpx}.palette{display:flex;gap:8rpx}.palette text{width:25rpx;height:25rpx;background:#70476f;border-radius:50%}.palette text:nth-child(2){background:#ee9f83}.palette text:nth-child(3){background:#f2c879}.visual-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11rpx}.visual-style{padding:15rpx 8rpx;color:#737b8a;background:#f5f5f8;border:2rpx solid transparent;border-radius:17rpx;text-align:center}.visual-style.active{color:#7a4968;background:#fff0f4;border-color:#d999b2}.style-symbol{display:flex;align-items:center;justify-content:center;width:51rpx;height:51rpx;margin:0 auto 8rpx;color:#fff;background:#7a4968;border-radius:15rpx;font-size:24rpx;font-weight:800}.style-symbol.oriental{background:#a95748}.style-symbol.tech{background:#4c67b4}.style-symbol.nature{background:#438267}.style-symbol.luxury{background:#9a7938}.style-symbol.vivid{background:#d76b66}.visual-style>text{font-size:18rpx}.color-grid{display:grid;grid-template-columns:1fr 1fr;gap:11rpx}.color-option{padding:14rpx;color:#747c8b;background:#f5f5f8;border:2rpx solid transparent;border-radius:15rpx;font-size:18rpx}.color-option.active{border-color:#c68ca6;background:#fff}.color-swatches{display:flex;margin-bottom:8rpx}.color-swatches text{width:35rpx;height:24rpx}.color-swatches text:first-child{border-radius:8rpx 0 0 8rpx}.color-swatches text:last-child{border-radius:0 8rpx 8rpx 0}.scene-row{display:flex;flex-wrap:wrap;gap:10rpx}.scene-chip{padding:10rpx 14rpx;color:#767e8e;background:#f1f2f5;border-radius:999rpx;font-size:19rpx}.scene-chip.active{color:#85506e;background:#fff0f4}.counter{margin-top:7rpx;color:#a09aaa;font-size:19rpx;text-align:right}.brief-preview{margin-top:22rpx;padding:21rpx;color:#fff;background:linear-gradient(135deg,#392855,#77506f);border-radius:20rpx}.brief-title{color:#e9cadb;font-size:17rpx;letter-spacing:2rpx}.brief-name{margin-top:8rpx;font-size:29rpx;font-weight:850}.brief-tags{display:flex;flex-wrap:wrap;gap:8rpx;margin-top:11rpx}.brief-tags text{padding:7rpx 10rpx;background:rgba(255,255,255,.13);border-radius:9rpx;font-size:16rpx}.brief-text{margin-top:12rpx;color:#eadde7;font-size:18rpx;line-height:1.55}.notice{display:flex;gap:13rpx;margin-top:22rpx;padding:18rpx;color:#795c2f;background:#fff7e9;border-radius:17rpx;font-size:20rpx}.result-wrap{margin-top:32rpx}.result-head{display:flex;align-items:end;justify-content:space-between}.result-kicker{color:#a06280;font-size:16rpx;font-weight:850;letter-spacing:3rpx}.result-title{margin-top:6rpx;font-size:32rpx;font-weight:850}.result-actions{display:flex;gap:9rpx}.result-actions view{padding:9rpx 12rpx;color:#85506e;background:#fff0f4;border-radius:11rpx;font-size:17rpx}.logo-frame{position:relative;margin-top:18rpx;padding:15rpx;background:#fff;border-radius:29rpx;box-shadow:0 14rpx 40rpx rgba(75,43,74,.1)}.logo-image,.logo-empty{width:100%;height:560rpx;background:linear-gradient(135deg,#faf7f4,#f5eef4);border-radius:22rpx}.logo-empty{display:flex;align-items:center;justify-content:center;color:#a49aa3}.corner{position:absolute;width:42rpx;height:42rpx;border-color:#d88799}.corner-a{top:28rpx;left:28rpx;border-top:5rpx solid;border-left:5rpx solid}.corner-b{right:28rpx;bottom:28rpx;border-right:5rpx solid;border-bottom:5rpx solid}.logo-status{margin-top:16rpx;color:#84506f;font-size:24rpx;font-weight:750;text-align:center}.prompt-box{margin-top:20rpx;padding:22rpx;background:#f5f0f4;border-radius:19rpx}.prompt-title{font-size:23rpx;font-weight:780}.prompt-content{margin-top:10rpx;color:#756b76;font-size:21rpx;line-height:1.65;white-space:pre-wrap}
 </style>

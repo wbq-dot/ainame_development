@@ -27,6 +27,10 @@ export function getUser() {
   return uni.getStorageSync(USER_KEY) || null
 }
 
+export function setUser(user) {
+  uni.setStorageSync(USER_KEY, user)
+}
+
 export function saveLogin(data) {
   uni.setStorageSync(ACCESS_TOKEN_KEY, data.access_token)
   uni.setStorageSync(REFRESH_TOKEN_KEY, data.refresh_token)

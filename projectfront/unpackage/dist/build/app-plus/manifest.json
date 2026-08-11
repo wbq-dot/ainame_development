@@ -1,0 +1,131 @@
+{
+  "@platforms": [
+    "android",
+    "iPhone",
+    "iPad"
+  ],
+  "id": "__UNI__94BB11F",
+  "name": "知名台",
+  "version": {
+    "name": "0.1.0",
+    "code": "100"
+  },
+  "description": "AI 智能人工起名",
+  "developer": {
+    "name": "",
+    "email": "",
+    "url": ""
+  },
+  "permissions": {
+    "UniNView": {
+      "description": "UniNView原生渲染"
+    }
+  },
+  "plus": {
+    "useragent": {
+      "value": "uni-app",
+      "concatenate": true
+    },
+    "splashscreen": {
+      "target": "id:1",
+      "autoclose": true,
+      "waiting": true,
+      "delay": 0
+    },
+    "popGesture": "close",
+    "launchwebview": {
+      "id": "1",
+      "kernel": "WKWebview"
+    },
+    "usingComponents": true,
+    "nvueStyleCompiler": "uni-app",
+    "compilerVersion": 3,
+    "distribute": {
+      "apple": {
+        "dSYMs": false
+      },
+      "plugins": {
+        "audio": {
+          "mp3": {
+            "description": "Android平台录音支持MP3格式文件"
+          }
+        }
+      }
+    },
+    "statusbar": {
+      "immersed": "supportedDevice",
+      "style": "dark",
+      "background": "#f5f7fb"
+    },
+    "allowsInlineMediaPlayback": true,
+    "safearea": {
+      "background": "#ffffff",
+      "bottom": {
+        "offset": "auto"
+      }
+    },
+    "uni-app": {
+      "control": "uni-v3",
+      "vueVersion": "3",
+      "compilerVersion": "5.14",
+      "nvueCompiler": "uni-app",
+      "renderer": "auto",
+      "nvue": {
+        "flex-direction": "column"
+      },
+      "nvueLaunchMode": "normal",
+      "webView": {
+        "minUserAgentVersion": "49.0"
+      }
+    },
+    "tabBar": {
+      "position": "bottom",
+      "color": "#8a93a6",
+      "selectedColor": "#6257e8",
+      "borderStyle": "rgba(255,255,255,0.4)",
+      "blurEffect": "none",
+      "fontSize": "10px",
+      "iconWidth": "24px",
+      "spacing": "3px",
+      "height": "50px",
+      "list": [
+        {
+          "pagePath": "pages/index/index",
+          "text": "首页"
+        },
+        {
+          "pagePath": "pages/naming/index",
+          "text": "起名"
+        },
+        {
+          "pagePath": "pages/logo/index",
+          "text": "Logo 图案"
+        },
+        {
+          "pagePath": "pages/account/index",
+          "text": "我的"
+        }
+      ],
+      "backgroundColor": "#ffffff",
+      "selectedIndex": 0,
+      "shown": true,
+      "child": [
+        "lauchwebview"
+      ],
+      "selected": 0
+    }
+  },
+  "app-harmony": {
+    "useragent": {
+      "value": "uni-app",
+      "concatenate": true
+    },
+    "safearea": {
+      "background": "#ffffff",
+      "bottom": {
+        "offset": "auto"
+      }
+    }
+  },
+  "launch_path": "__uniappview.html"
+}

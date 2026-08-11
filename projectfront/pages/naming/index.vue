@@ -1,5 +1,11 @@
 <template>
   <view class="page-shell naming-page">
+    <view class="naming-center-head"><view><view class="center-eyebrow">NAMING CENTER</view><view class="center-title">起名</view><view class="center-desc">AI 灵感、真人专家与专属资料库，都在一个页面。</view></view></view>
+    <view class="service-switch">
+      <view class="service-item active"><view class="service-icon">AI</view><view><view class="service-name">AI 起名</view><view class="service-desc">立即生成候选名字</view></view></view>
+      <view class="service-item" @click="openExpertNaming"><view class="service-icon expert">专</view><view><view class="service-name">专家起名</view><view class="service-desc">三档真人专家接单</view></view></view>
+      <view class="service-item" @click="openKnowledge"><view class="service-icon knowledge">库</view><view><view class="service-name">专属知识库</view><view class="service-desc">上传自己的参考资料</view></view></view>
+    </view>
     <view class="title-row">
       <view>
         <view class="page-title">AI 起名</view>
@@ -164,6 +170,8 @@ export default {
     if (this.loggedIn) this.loadBalance()
   },
   methods: {
+    openExpertNaming() { uni.navigateTo({ url: '/pages/expert/index' }) },
+    openKnowledge() { uni.navigateTo({ url: '/pages/knowledge/index' }) },
     goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) },
     async loadBalance() {
       try {
@@ -255,6 +263,7 @@ export default {
 </script>
 
 <style scoped>
+.naming-center-head{padding:31rpx 32rpx;color:#fff;background:linear-gradient(135deg,#252350,#6451d6);border-radius:30rpx}.center-eyebrow{color:#d9d3ff;font-size:16rpx;font-weight:800;letter-spacing:4rpx}.center-title{margin-top:8rpx;font-size:39rpx;font-weight:900}.center-desc{margin-top:6rpx;color:#dfdcf8;font-size:20rpx}.service-switch{display:grid;grid-template-columns:repeat(3,1fr);gap:12rpx;margin-top:17rpx}.service-item{min-height:118rpx;padding:17rpx;background:#fff;border:2rpx solid transparent;border-radius:20rpx}.service-item.active{border-color:#bdb5ff;background:#f4f2ff}.service-icon{display:flex;align-items:center;justify-content:center;width:45rpx;height:45rpx;color:#fff;background:#6257e8;border-radius:13rpx;font-size:16rpx;font-weight:850}.service-icon.expert{background:#30906c}.service-icon.knowledge{background:#bd7540}.service-name{margin-top:10rpx;font-size:21rpx;font-weight:820}.service-desc{margin-top:4rpx;color:#929aaa;font-size:16rpx;line-height:1.35}.title-row{margin-top:30rpx}
 .naming-page { background: radial-gradient(circle at 100% 0, #e9e5ff 0, transparent 25%), #f5f7fb; }
 .title-row { display: flex; align-items: center; justify-content: space-between; }
 .balance-pill { display: flex; flex-direction: column; align-items: center; min-width: 118rpx; padding: 15rpx 20rpx; color: #6f63d8; background: #ebe9ff; border-radius: 21rpx; font-size: 20rpx; }

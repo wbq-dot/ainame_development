@@ -6,6 +6,7 @@ import models   # 导入 models 模块
 from core.alipaytools import validate_payment_settings
 from core.payment_service import payment_reconciliation_loop
 from core.account_cleanup import account_cleanup_loop
+from core.order_cleanup import expert_order_maintenance_loop
 from core.workflow import init_workflow_graph, close_workflow_graph
 from fastapi.middleware.cors import CORSMiddleware
 import settings
@@ -19,14 +20,20 @@ async def lifespan(app: FastAPI):
     await init_workflow_graph()
     payment_reconciliation_task = asyncio.create_task(payment_reconciliation_loop())
     account_cleanup_task = asyncio.create_task(account_cleanup_loop())
+    expert_order_maintenance_task = asyncio.create_task(expert_order_maintenance_loop())
     # 在这个 yield 关键字之上的所有代码，都会在 FastAPI 应用启动、但还没有开始接收任何外部网络请求的时候执行
     # 在这个 yield 关键字之下的所有代码，只有在你停止服务器，或者服务器被关闭时才会执行。
     try:
         yield
     finally:
-        for task in (payment_reconciliation_task, account_cleanup_task):
+        background_tasks = (
+            payment_reconciliation_task,
+            account_cleanup_task,
+            expert_order_maintenance_task,
+        )
+        for task in background_tasks:
             task.cancel()
-        for task in (payment_reconciliation_task, account_cleanup_task):
+        for task in background_tasks:
             with suppress(asyncio.CancelledError):
                 await task
         # 服务停止时，清理数据库连接
@@ -55,6 +62,9 @@ from pathlib import Path
 from fastapi.staticfiles import StaticFiles
 from modules.logo.logo_router import router as logo_router
 from modules.admin.admin_router import router as admin_router
+from modules.expert.expert_router import router as expert_router
+from modules.expert.expert_admin_router import router as expert_admin_router
+from modules.expert.expert_pay_router import router as expert_pay_router
 
 
 BACKEND_DIR = Path(__file__).resolve().parent   # Path(__file__) 当前的文件路径 resolve() 解析 parent 上层的文件夹   D:\data\wbq_ainame
@@ -80,6 +90,9 @@ app.include_router(pay_router)
 app.include_router(rag_router)
 app.include_router(account_router)
 app.include_router(admin_router)
+app.include_router(expert_router)
+app.include_router(expert_admin_router)
+app.include_router(expert_pay_router)
 
 @app.get("/")
 async def root():
@@ -89,3 +102,10 @@ async def root():
 @app.get("/hello/{name}")
 async def say_hello(name: str):
     return {"message": f"Hello {name}"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    # 监听所有网卡，使同一局域网内的手机和其他设备可以访问。
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -15,7 +15,12 @@
     "app-plus" : {
         "usingComponents" : true,
         "nvueStyleCompiler" : "uni-app",
-        "compilerVersion" : 3
+        "compilerVersion" : 3,
+        "distribute" : {
+            "ios" : {
+                "dSYMs" : false
+            }
+        }
     },
     "mp-weixin" : {
         "appid" : "",
@@ -23,5 +28,6 @@
             "urlCheck" : false
         },
         "usingComponents" : true
-    }
+    },
+    "fallbackLocale" : "zh-Hans"
 }
