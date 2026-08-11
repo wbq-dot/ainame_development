@@ -4,6 +4,7 @@ from typing import Annotated
 # 定义前端传入后端的数据模型，校验
 RawPasswordStr = Annotated[str, Field(..., min_length=8, max_length=64)]
 LoginPasswordStr = Annotated[str, Field(..., min_length=1, max_length=64)]
+LoginEmailStr = Annotated[str, Field(..., min_length=3, max_length=100, pattern=r"^[^\s@]+@[^\s@]+$")]
 
 class RegisterIn(BaseModel):
     email: EmailStr
@@ -31,14 +32,16 @@ class UserCreateSchema(BaseModel):
 
 # 登录的格式
 class LoginIn(BaseModel):
-    email: EmailStr
+    # 登录需要兼容本地 .local 演示账号；新注册仍使用严格 EmailStr。
+    email: LoginEmailStr
     # 登录暂时兼容历史6位密码；新注册密码必须为8至64位。
     password: LoginPasswordStr
 
 class UserSchema(BaseModel):     # 基础的用户信息 email username
     id: int
-    email: EmailStr
-    username: Annotated[str, Field(min_length=3,max_length=8)]
+    email: str
+    # 输出兼容历史账号与本地演示账号；新注册用户名仍限制为 3-8 字符。
+    username: str
     role: str
     status: str
     model_config = ConfigDict(from_attributes=True)

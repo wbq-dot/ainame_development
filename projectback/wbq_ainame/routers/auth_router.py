@@ -87,7 +87,7 @@ async def register(data:RegisterIn,  # basemodel 定义传入数据的格式并�
 
 
 from core.authtools import AuthHandler
-from schemas.user_schemas import LoginIn, LoginOutSchema, RefreshOutSchema
+from schemas.user_schemas import LoginIn, LoginOutSchema, RefreshOutSchema, UserSchema
 from models.User import User
 auth_handler=AuthHandler()
 # 登录时一般接收用户名和密码
@@ -124,6 +124,15 @@ async def refresh_access_token(
 ):
     """使用有效的 refresh token 换取新的 access token。"""
     return auth_handler.encode_update_token(user_id=user_id)
+
+
+@router.get("/me", response_model=UserSchema)
+async def get_current_user(
+    user_id: int = Depends(auth_handler.auth_access_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    """刷新当前账号资料，包括管理员或专家角色。"""
+    return await session.get(User, user_id)
 
 
 

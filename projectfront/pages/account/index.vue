@@ -28,12 +28,21 @@
       <button class="refresh-btn" :loading="balanceLoading" @click="loadBalance">刷新</button>
     </view>
 
+    <view v-if="user" class="expert-entry-grid">
+      <view class="expert-entry" @click="openExpertCenter"><view class="expert-entry-icon purple">专</view><view><view class="expert-entry-title">专家服务</view><view class="expert-entry-desc">专家起名订单、入驻与工作台统一入口</view></view><view class="expert-entry-arrow">›</view></view>
+    </view>
+
     <view v-if="isAdmin" class="admin-entry" @click="openAdminUsers">
       <view class="admin-icon">管</view>
       <view class="admin-entry-main">
         <view class="admin-entry-title">用户管理</view>
         <view class="admin-entry-desc">查询、冻结、解冻或删除普通用户</view>
       </view>
+      <view class="admin-arrow">›</view>
+    </view>
+    <view v-if="isAdmin" class="admin-entry expert-admin" @click="openAdminExperts">
+      <view class="admin-icon">专</view>
+      <view class="admin-entry-main"><view class="admin-entry-title">专家服务管理</view><view class="admin-entry-desc">审核专家、套餐、争议退款与结算</view></view>
       <view class="admin-arrow">›</view>
     </view>
 
@@ -100,7 +109,7 @@
 
 <script>
 import { api } from '../../api'
-import { clearLogin, getAccessToken, getUser, requireLogin } from '../../utils/auth'
+import { clearLogin, getAccessToken, getUser, requireLogin, setUser } from '../../utils/auth'
 
 export default {
   data() {
@@ -128,6 +137,9 @@ export default {
     isAdmin() {
       return Boolean(this.user && this.user.role === 'admin')
     },
+    isExpert() {
+      return Boolean(this.user && this.user.role === 'expert')
+    },
     avatarText() {
       return this.user && this.user.username ? this.user.username.slice(0, 1).toUpperCase() : '访'
     },
@@ -148,7 +160,10 @@ export default {
   },
   onShow() {
     this.user = getUser()
-    if (getAccessToken()) this.loadBalance()
+    if (getAccessToken()) {
+      this.refreshUser()
+      this.loadBalance()
+    }
     const requestedType = uni.getStorageSync('account_package_type')
     if (requestedType === 'name' || requestedType === 'logo') {
       this.packageType = requestedType
@@ -160,6 +175,16 @@ export default {
   methods: {
     goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) },
     openAdminUsers() { uni.navigateTo({ url: '/pages/admin/users' }) },
+    openAdminExperts() { uni.navigateTo({ url: '/pages/admin/experts' }) },
+    openExpertCenter() { uni.navigateTo({ url: '/pages/expert/center' }) },
+    async refreshUser() {
+      try {
+        this.user = await api.getMe()
+        setUser(this.user)
+      } catch (error) {
+        // 请求层会在登录失效时清理本地状态。
+      }
+    },
     buildQrCells(size) {
       const seedText = this.accountCode || 'ZN'
       let seed = 0
@@ -298,8 +323,15 @@ export default {
 .balance-divider { width: 1rpx; height: 72rpx; margin: 0 26rpx; background: rgba(255, 255, 255, 0.2); }
 .balance-label { color: #d5d2f5; font-size: 22rpx; }
 .balance-value { margin-top: 4rpx; font-size: 52rpx; font-weight: 850; }
+.expert-entry-grid { margin-top: 20rpx; }
+.expert-entry { display: flex; align-items: center; min-height: 115rpx; padding: 21rpx; background: #fff; border-radius: 22rpx; box-shadow: 0 10rpx 28rpx rgba(36,55,86,.05); }
+.expert-entry-icon { display: flex; flex: 0 0 58rpx; align-items: center; justify-content: center; width: 58rpx; height: 58rpx; margin-right: 14rpx; border-radius: 17rpx; font-size: 22rpx; font-weight: 850; }
+.expert-entry-icon.purple { color: #5549be; background: #ebe9ff; }.expert-entry-icon.gold { color: #795c1f; background: #fff2d0; }.expert-entry-icon.green { color: #237553; background: #e6f7ef; }
+.expert-entry-title { font-size: 23rpx; font-weight: 800; }.expert-entry-desc { margin-top: 4rpx; color: #929aaa; font-size: 17rpx; line-height: 1.4; }
+.expert-entry-arrow { margin-left: auto; color: #776ce3; font-size: 36rpx; }
 .refresh-btn { width: 120rpx; height: 64rpx; margin: 0; color: #fff; background: rgba(255, 255, 255, 0.15); border: 1rpx solid rgba(255, 255, 255, 0.2); border-radius: 18rpx; font-size: 22rpx; line-height: 64rpx; }
 .admin-entry { display: flex; align-items: center; margin-top: 20rpx; padding: 25rpx 27rpx; color: #fff; background: linear-gradient(135deg, #172033, #353c56); border-radius: 25rpx; box-shadow: 0 13rpx 30rpx rgba(23, 32, 51, 0.18); }
+.admin-entry.expert-admin { background: linear-gradient(135deg, #302b61, #594db1); }
 .admin-icon { display: flex; align-items: center; justify-content: center; width: 72rpx; height: 72rpx; color: #2d3150; background: #f2d586; border-radius: 19rpx; font-size: 27rpx; font-weight: 850; }
 .admin-entry-main { flex: 1; margin-left: 19rpx; }
 .admin-entry-title { font-size: 28rpx; font-weight: 800; }

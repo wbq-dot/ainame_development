@@ -11,10 +11,38 @@ LOGO_DIR = BACKEND_DIR / "static" / "logos"
 LOGO_DIR.mkdir(parents=True, exist_ok=True)
 
 # 提示词函数
-def build_logo_prompt(company_name: str, style_feedback: str = "") -> str:
+def build_logo_prompt(
+    company_name: str,
+    style_feedback: str = "",
+    slogan: str = "",
+    industry: str = "",
+    brand_personality: str = "",
+    logo_style: str = "极简现代",
+    primary_colors: str = "",
+    graphic_elements: str = "",
+    forbidden_elements: str = "",
+    usage_scenes: str = "官网、App 图标、名片",
+) -> str:
     feedback = style_feedback.strip() or "首次生成，按企业名称设计。"
+    brief = "\n".join(
+        line
+        for line in [
+            f"品牌口号：{slogan.strip()}" if slogan.strip() else "",
+            f"所属行业：{industry.strip()}" if industry.strip() else "",
+            f"品牌气质：{brand_personality.strip()}" if brand_personality.strip() else "",
+            f"视觉风格：{logo_style.strip()}" if logo_style.strip() else "",
+            f"偏好颜色：{primary_colors.strip()}" if primary_colors.strip() else "",
+            f"图形元素：{graphic_elements.strip()}" if graphic_elements.strip() else "",
+            f"禁用元素：{forbidden_elements.strip()}" if forbidden_elements.strip() else "",
+            f"使用场景：{usage_scenes.strip()}" if usage_scenes.strip() else "",
+        ]
+        if line
+    )
     return f"""
 为企业品牌“{company_name}”设计一枚专业 Logo 图形。
+
+品牌创作简报：
+{brief or "未补充，按品牌名称进行专业判断。"}
 
 用户要求：{feedback}
 
@@ -35,8 +63,8 @@ def pick_image_url(data: dict) -> str:
     return ""
 
 
-def generate_company_logo(company_name: str, style_feedback: str = "") -> dict:
-    logo_prompt = build_logo_prompt(company_name, style_feedback)  # 生成传入模型的提示词函数
+def generate_company_logo(company_name: str, style_feedback: str = "", **brief) -> dict:
+    logo_prompt = build_logo_prompt(company_name, style_feedback, **brief)
 
     # 没有配置 api 不能调大模型
     if not settings.DASHSCOPE_API_KEY or not settings.DASHSCOPE_BASE_URL:

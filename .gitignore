@@ -12,6 +12,8 @@
 projectback/wbq_ainame/chroma_rag_db/
 projectback/wbq_ainame/uploader/
 projectback/wbq_ainame/static/logos/
+projectback/wbq_ainame/private_storage/expert/*
+!projectback/wbq_ainame/private_storage/expert/.gitkeep
 
 # Local API requests may contain passwords or JWTs
 projectback/wbq_ainame/test_main.http

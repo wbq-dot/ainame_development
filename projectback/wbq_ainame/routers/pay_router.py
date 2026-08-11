@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException,Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.alipaytools import create_alipay,get_alipay_gateway,get_notify_url,get_return_url
+from core.alipaytools import (
+    build_alipay_page_pay_url,
+    create_alipay,
+    get_notify_url,
+    get_return_url,
+)
 from core.authtools import AuthHandler
 from dependencies import get_session
 from models.user_order import UserOrder
@@ -30,20 +35,14 @@ session: AsyncSession = Depends(get_session)
     # 2.去生成订单 -- 用户信息 + 套餐信息 -> await 立马生成订单
     order: UserOrder = await order_repo.create_order(user_id, package)
 
-    # 3.创建支付宝链接 =   支付网关 + order_string
-    alipay = create_alipay()
-
-    # api_alipay_trade_page_pay 生成字符串的订单信息
-    order_string = alipay.api_alipay_trade_page_pay(
+    # 3.使用统一参数生成支付宝链接
+    pay_url = build_alipay_page_pay_url(
         out_trade_no=order.order_no,
         subject=f"购买{package.name}",
         total_amount=str(order.amount),
-        timeout_express="1h",
         notify_url=get_notify_url(),
-        return_url=get_return_url())
-
-    # 付款网址?order_string = 付款连接
-    pay_url = f"{get_alipay_gateway()}?{order_string}"
+        return_url=get_return_url(),
+    )
 
     # CreateOrderOut 本身就是类，可以实例化对象返回
     return CreateOrderOut(
