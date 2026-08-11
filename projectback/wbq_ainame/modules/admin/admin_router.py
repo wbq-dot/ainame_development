@@ -11,6 +11,7 @@ from dependencies import get_session
 from modules.admin.admin_repo import (
     AdminRepository,
     AdminEmailConflict,
+    AdminPackageNotFound,
     AdminStateConflict,
     AdminTargetForbidden,
     AdminTargetNotFound,
@@ -21,6 +22,11 @@ from modules.admin.admin_schemas import (
     AdminBootstrapIn,
     AdminBootstrapOut,
     AdminBootstrapStatusOut,
+    AdminCreditAdjustmentIn,
+    AdminCreditAdjustmentOut,
+    AdminPackageOut,
+    AdminPackageStatusIn,
+    AdminPackageStatusOut,
     AdminUserListOut,
 )
 
@@ -91,6 +97,68 @@ async def list_users(
         "page": page,
         "page_size": page_size,
     }
+
+
+@router.get("/packages", response_model=list[AdminPackageOut])
+async def list_packages(
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    return await AdminRepository(session).list_packages()
+
+
+@router.patch(
+    "/packages/{package_id}/status",
+    response_model=AdminPackageStatusOut,
+)
+async def change_package_status(
+    package_id: int,
+    data: AdminPackageStatusIn,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        package, changed = await AdminRepository(session).change_package_status(
+            admin_user_id,
+            package_id,
+            data.is_active,
+        )
+    except AdminPackageNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    if not changed:
+        state_label = "上架" if data.is_active else "下架"
+        message = f"套餐已经处于{state_label}状态"
+    else:
+        message = "套餐已上架" if data.is_active else "套餐已下架"
+    return {"message": message, "package": package}
+
+
+@router.post(
+    "/users/{user_id}/credit-adjustments",
+    response_model=AdminCreditAdjustmentOut,
+)
+async def adjust_user_credit(
+    user_id: int,
+    data: AdminCreditAdjustmentIn,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        result = await AdminRepository(session).adjust_user_credit(
+            admin_user_id,
+            user_id,
+            data.credit_type,
+            data.change_count,
+            data.reason,
+        )
+    except AdminTargetNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except AdminTargetForbidden as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except AdminStateConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return {"message": "用户余额已调整", **result}
 
 
 @router.post("/users/{user_id}/freeze", response_model=AdminActionOut)

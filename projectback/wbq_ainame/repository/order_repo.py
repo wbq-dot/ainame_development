@@ -3,7 +3,11 @@ from models.user_order import UserOrder
 from datetime import datetime
 import random
 from sqlalchemy import delete, func, select, text
-from models.user_credit import UserCredit,CreditLog
+from models.user_credit import CreditLog, UserCredit
+
+
+class PackageUnavailableError(Exception):
+    pass
 
 class OrderRepo:
 
@@ -16,20 +20,27 @@ class OrderRepo:
         random_str = str(random.randint(100000, 999999))  # random.randint(a, b)  从 [a , b] 中随机选择一个整数
         return time_str+random_str
 
-    async def create_order(self,user_id:int,package:Package):
+    async def create_order(self, user_id: int, package_id: int):
         async with self.session.begin():
-           order =  UserOrder(
+            # 套餐状态校验和订单写入必须在同一事务内，并与管理员上下架共用行锁。
+            package = await self.session.scalar(
+                select(Package).where(Package.id == package_id).with_for_update()
+            )
+            if not package or not package.is_active:
+                raise PackageUnavailableError("套餐不存在或已下架")
+
+            order = UserOrder(
                 order_no=self.create_order_no(),
-                user_id = user_id,
+                user_id=user_id,
                 package_id=package.id,
                 amount=package.price,
                 credit_count=package.credit_count,
                 credit_type=package.credit_type,
-                status="pending"
+                status="pending",
             )
-           self.session.add(order)
-           await self.session.flush()   # 立即存表，进行支付连接的生成
-           return order
+            self.session.add(order)
+            await self.session.flush()   # 立即存表，进行支付连接的生成
+            return order, package
 
     async def get_by_order_no(self, order_no):
         async with self.session.begin():

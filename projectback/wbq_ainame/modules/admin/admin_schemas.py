@@ -1,7 +1,8 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from schemas.user_schemas import RawPasswordStr
 
@@ -61,3 +62,53 @@ class AdminUserListOut(BaseModel):
 class AdminActionOut(BaseModel):
     message: str
     user: AdminUserOut
+
+
+class AdminCreditAdjustmentIn(BaseModel):
+    credit_type: Literal["name", "logo"]
+    change_count: int = Field(..., ge=-2147483647, le=2147483647)
+    reason: str = Field(..., min_length=1, max_length=200)
+
+    @field_validator("change_count")
+    @classmethod
+    def validate_change_count(cls, value: int) -> int:
+        if value == 0:
+            raise ValueError("调整次数不能为 0")
+        return value
+
+    @field_validator("reason")
+    @classmethod
+    def normalize_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("调整原因不能为空")
+        return normalized
+
+
+class AdminCreditAdjustmentOut(BaseModel):
+    message: str
+    user: AdminUserOut
+    credit_type: Literal["name", "logo"]
+    change_count: int
+    balance_before: int
+    balance_after: int
+
+
+class AdminPackageOut(BaseModel):
+    id: int
+    name: str
+    price: Decimal
+    credit_count: int
+    credit_type: Literal["name", "logo"]
+    is_active: bool
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AdminPackageStatusIn(BaseModel):
+    is_active: bool
+
+
+class AdminPackageStatusOut(BaseModel):
+    message: str
+    package: AdminPackageOut

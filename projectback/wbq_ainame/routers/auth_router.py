@@ -90,32 +90,55 @@ from core.authtools import AuthHandler
 from schemas.user_schemas import LoginIn, LoginOutSchema, RefreshOutSchema
 from models.User import User
 auth_handler=AuthHandler()
-# 登录时一般接收用户名和密码
-@router.post("/login",response_model=LoginOutSchema)  # 定义输出的 json 格式
-async def login(loginInfo:LoginIn,session:AsyncSession=Depends(get_session)):
-    # 1.验证这个邮箱是否在我这里注册过。从数据库验证
-    user_repo = UserRepository(session)   # 数据库操作工具
-    user:User = await  user_repo.get_by_email(email=loginInfo.email)   # 从邮箱中查数据
+
+
+async def _authenticate_user(
+    login_info: LoginIn,
+    session: AsyncSession,
+    *,
+    admin_login: bool,
+):
+    """验证登录凭据，并限制当前登录入口允许的账号角色。"""
+    user_repo = UserRepository(session)
+    user: User = await user_repo.get_by_email(email=login_info.email)
     if not user:
-        raise  HTTPException(status_code=400,detail="该用户不存在")
+        raise HTTPException(status_code=400, detail="该用户不存在")
     if user.status == "frozen":
         raise HTTPException(status_code=423, detail="账号已被冻结，请联系管理员")
     if user.status == "deleted":
         raise HTTPException(status_code=400, detail="该用户不存在")
     if user.status != "active":
         raise HTTPException(status_code=403, detail="账号状态异常")
-    # 2.密码验证，如果密码错了，不让登陆
-    if not user.check_password(loginInfo.password):
-        raise  HTTPException(status_code=400,detail="密码错误，请重新输入")
+    if not user.check_password(login_info.password):
+        raise HTTPException(status_code=400, detail="密码错误，请重新输入")
 
+    if admin_login and user.role != "admin":
+        raise HTTPException(status_code=403, detail="该账号不是管理员，请使用普通用户登录入口")
+    if not admin_login and user.role == "admin":
+        raise HTTPException(status_code=403, detail="管理员账号请通过管理员登录入口登录")
 
-    # 3.生成jwt token，返回 token 和 用户名、邮箱
     tokens = auth_handler.encode_login_token(user_id=user.id)
     return {
-        "user":user,
-        "access_token":tokens["access_token"],
-        "refresh_token":tokens["refresh_token"],
+        "user": user,
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens["refresh_token"],
     }
+
+
+@router.post("/login", response_model=LoginOutSchema)
+async def login(
+    login_info: LoginIn,
+    session: AsyncSession = Depends(get_session),
+):
+    return await _authenticate_user(login_info, session, admin_login=False)
+
+
+@router.post("/admin/login", response_model=LoginOutSchema)
+async def admin_login(
+    login_info: LoginIn,
+    session: AsyncSession = Depends(get_session),
+):
+    return await _authenticate_user(login_info, session, admin_login=True)
 
 
 @router.post("/refresh", response_model=RefreshOutSchema)

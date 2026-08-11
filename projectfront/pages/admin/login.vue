@@ -62,7 +62,7 @@ export default {
       }
       this.loading = true
       try {
-        const data = await api.login(this.form)
+        const data = await api.adminLogin(this.form)
         if (!data.user || data.user.role !== 'admin') {
           clearLogin()
           uni.showModal({

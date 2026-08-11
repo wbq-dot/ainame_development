@@ -45,6 +45,10 @@
       "style": { "navigationBarTitleText": "用户管理" }
     },
     {
+      "path": "pages/admin/packages",
+      "style": { "navigationBarTitleText": "套餐管理" }
+    },
+    {
       "path": "pages/admin/login",
       "style": { "navigationBarTitleText": "管理员登录" }
     },

@@ -8,6 +8,7 @@ export const api = {
   }),
   register: (data) => request({ url: '/auth/register', method: 'POST', data }),
   login: (data) => request({ url: '/auth/login', method: 'POST', data }),
+  adminLogin: (data) => request({ url: '/auth/admin/login', method: 'POST', data }),
   getAdminBootstrapStatus: () => request({ url: '/admin/bootstrap/status' }),
   bootstrapAdmin: (data) => request({ url: '/admin/bootstrap', method: 'POST', data }),
   generateNames: (data) => request({ url: '/name/generate', method: 'POST', data, auth: true }),
@@ -38,6 +39,19 @@ export const api = {
     ].filter(Boolean).join('&')
     return request({ url: `/admin/users?${params}`, auth: true })
   },
+  getAdminPackages: () => request({ url: '/admin/packages', auth: true }),
+  updateAdminPackageStatus: (packageId, isActive) => request({
+    url: `/admin/packages/${packageId}/status`,
+    method: 'PATCH',
+    data: { is_active: isActive },
+    auth: true
+  }),
+  adjustUserCredit: (userId, data) => request({
+    url: `/admin/users/${userId}/credit-adjustments`,
+    method: 'POST',
+    data,
+    auth: true
+  }),
   freezeUser: (userId, reason = '') => request({
     url: `/admin/users/${userId}/freeze`,
     method: 'POST',

@@ -4,8 +4,7 @@ from core.alipaytools import create_alipay,get_alipay_gateway,get_notify_url,get
 from core.authtools import AuthHandler
 from dependencies import get_session
 from models.user_order import UserOrder
-from repository.order_repo import OrderRepo
-from repository.package_repo import PackageRepository
+from repository.order_repo import OrderRepo, PackageUnavailableError
 from schemas.pay_schemas import CreateOrderIn, CreateOrderOut
 from fastapi.responses import HTMLResponse
 from fastapi.responses import PlainTextResponse
@@ -20,15 +19,12 @@ async def create_order(data: CreateOrderIn,
 user_id: int = Depends(auth_handler.auth_access_dependency),  # 即进行校验也进行注入，填充user_id
 session: AsyncSession = Depends(get_session)
 ):
-    package_repo = PackageRepository(session=session)
     order_repo = OrderRepo(session=session)
-    # 1. 查询套餐  -- 一条套餐的数据
-    package = await package_repo.get_by_id(data.package_id)
-    if not package:
-        raise HTTPException(status_code=400, detail="套餐不存在或已下架")
-
-    # 2.去生成订单 -- 用户信息 + 套餐信息 -> await 立马生成订单
-    order: UserOrder = await order_repo.create_order(user_id, package)
+    # 查询并锁定套餐、校验上架状态、创建订单必须原子完成。
+    try:
+        order, package = await order_repo.create_order(user_id, data.package_id)
+    except PackageUnavailableError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # 3.创建支付宝链接 =   支付网关 + order_string
     alipay = create_alipay()
