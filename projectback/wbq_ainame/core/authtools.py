@@ -34,49 +34,63 @@ class AuthHandler:
         self.secret = JWT_SECRET_KEY
 
     # 创建 JWT  Header.Payload.Signature  定义一个模版
-    def _create_token(self, user_id: int, token_type: str, expires_delta):
+    def _create_token(
+        self,
+        user_id: int,
+        token_type: str,
+        expires_delta,
+        auth_version: int = 0,
+    ):
         # Payload
         payload = {
             "user_id": user_id,
             "type": token_type,
+            "auth_version": auth_version,
             "exp": datetime.now(timezone.utc) + expires_delta,
         }
         return jwt.encode(payload, self.secret, algorithm=self.algorithm)  # 创建jwt.encode()
 
     # 定义传参的内容，生成给用户
-    def encode_login_token(self, user_id: int):  # use_id 是从 router 传入的
+    def encode_login_token(self, user_id: int, auth_version: int = 0):  # use_id 是从 router 传入的
         return {
             "access_token": self._create_token(
                 user_id=user_id,
                 token_type="access",
                 expires_delta=settings.JWT_ACCESS_TOKEN_EXPIRES,  # setting.__init__ 文件中放置的非保密配置参数，JWT 的 access 时间
+                auth_version=auth_version,
             ),
             "refresh_token": self._create_token(
                 user_id=user_id,
                 token_type="refresh",
                 expires_delta=settings.JWT_REFRESH_TOKEN_EXPIRES,   # JWT 的 refresh 时间
+                auth_version=auth_version,
             )
         }
 
     # 更新 token 当用户的id 改变时
-    def encode_update_token(self, user_id: int):
+    def encode_update_token(self, user_id: int, auth_version: int = 0):
         return {
             "access_token": self._create_token(
                 user_id=user_id,
                 token_type="access",
                 expires_delta=settings.JWT_ACCESS_TOKEN_EXPIRES,
+                auth_version=auth_version,
             )
         }
 
     # 通过 token 来进行校验令牌
-    def _decode_token(self, token: str, token_type: str, status_code: int):
+    def _decode_claims(self, token: str, token_type: str, status_code: int):
         try:
             payload = jwt.decode(token, self.secret, algorithms=[self.algorithm])  # 解码令牌中 payload 信息
 
             if payload.get("type") != token_type:
                 raise HTTPException(status_code=status_code, detail="Token类型错误")
 
-            return int(payload["user_id"])   # 与用户进行映射校验
+            return {
+                "user_id": int(payload["user_id"]),
+                # 兼容上线前签发且没有版本字段的旧令牌。
+                "auth_version": int(payload.get("auth_version", 0)),
+            }
 
         except HTTPException:
             raise
@@ -89,6 +103,10 @@ class AuthHandler:
 
         except Exception:
             raise HTTPException(status_code=status_code, detail="Token解析失败")
+
+    def _decode_token(self, token: str, token_type: str, status_code: int):
+        """保留原有公开行为，返回令牌中的用户 ID。"""
+        return self._decode_claims(token, token_type, status_code)["user_id"]
 
     # access 解码的结果
     def decode_access_token(self, token: str):
@@ -108,7 +126,11 @@ class AuthHandler:
 
     # HTTPBearer() 自动的切取  Authorization:Bearer  所有信息
     # Security(HTTPBearer()).credentials 得到 token 字符串信息 -> jwt.decode(auth.credentials) 得到 payload  -> payload["user_id"] == user_id
-    async def _get_available_user(self, user_id: int) -> User:
+    async def _get_available_user(
+        self,
+        user_id: int,
+        token_auth_version: int | None = None,
+    ) -> User:
         async with AsyncSessionFactory() as session:
             user = await session.get(User, user_id)
 
@@ -118,30 +140,55 @@ class AuthHandler:
             raise HTTPException(status_code=423, detail="账号已被冻结，请联系管理员")
         if user.status != "active":
             raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="账号状态异常")
+        if (
+            token_auth_version is not None
+            and user.auth_version != token_auth_version
+        ):
+            raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="登录状态已失效")
         return user
 
     async def auth_access_dependency(
         self,
         auth: HTTPAuthorizationCredentials = Security(security),
     ):
-        user_id = self.decode_access_token(auth.credentials)
-        user = await self._get_available_user(user_id)
+        claims = self._decode_claims(
+            auth.credentials,
+            token_type="access",
+            status_code=HTTP_401_UNAUTHORIZED,
+        )
+        user = await self._get_available_user(
+            claims["user_id"],
+            claims["auth_version"],
+        )
         return user.id
 
     async def auth_refresh_dependency(
         self,
         auth: HTTPAuthorizationCredentials = Security(security),
     ):
-        user_id = self.decode_refresh_token(auth.credentials)
-        user = await self._get_available_user(user_id)
-        return user.id
+        claims = self._decode_claims(
+            auth.credentials,
+            token_type="refresh",
+            status_code=HTTP_401_UNAUTHORIZED,
+        )
+        return await self._get_available_user(
+            claims["user_id"],
+            claims["auth_version"],
+        )
 
     async def admin_dependency(
         self,
         auth: HTTPAuthorizationCredentials = Security(security),
     ) -> int:
-        user_id = self.decode_access_token(auth.credentials)
-        user = await self._get_available_user(user_id)
+        claims = self._decode_claims(
+            auth.credentials,
+            token_type="access",
+            status_code=HTTP_401_UNAUTHORIZED,
+        )
+        user = await self._get_available_user(
+            claims["user_id"],
+            claims["auth_version"],
+        )
         if user.role != "admin":
             raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="需要管理员权限")
         return user.id

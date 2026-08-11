@@ -3,7 +3,10 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 import models   # 导入 models 模块
-from core.order_cleanup import cleanup_expired_orders_loop
+from core.alipaytools import validate_payment_settings
+from core.payment_service import payment_reconciliation_loop
+from core.account_cleanup import account_cleanup_loop
+from core.order_cleanup import expert_order_maintenance_loop
 from core.workflow import init_workflow_graph, close_workflow_graph
 from fastapi.middleware.cors import CORSMiddleware
 import settings
@@ -11,17 +14,28 @@ import settings
 # @asynccontextmanager 把下面的 lifespan 函数变成一个“上下文管理器”,在 FastAPI 中，它专门用来界定“启动前”和“关闭后”两个不同的阶段。
 @asynccontextmanager   # 异步的环境管理
 async def lifespan(app: FastAPI):
+    if settings.PAYMENT_ENABLED:
+        validate_payment_settings()
     # 服务启动时，安全地初始化带记忆的工作流
     await init_workflow_graph()
-    order_cleanup_task = asyncio.create_task(cleanup_expired_orders_loop())
+    payment_reconciliation_task = asyncio.create_task(payment_reconciliation_loop())
+    account_cleanup_task = asyncio.create_task(account_cleanup_loop())
+    expert_order_maintenance_task = asyncio.create_task(expert_order_maintenance_loop())
     # 在这个 yield 关键字之上的所有代码，都会在 FastAPI 应用启动、但还没有开始接收任何外部网络请求的时候执行
     # 在这个 yield 关键字之下的所有代码，只有在你停止服务器，或者服务器被关闭时才会执行。
     try:
         yield
     finally:
-        order_cleanup_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await order_cleanup_task
+        background_tasks = (
+            payment_reconciliation_task,
+            account_cleanup_task,
+            expert_order_maintenance_task,
+        )
+        for task in background_tasks:
+            task.cancel()
+        for task in background_tasks:
+            with suppress(asyncio.CancelledError):
+                await task
         # 服务停止时，清理数据库连接
         await close_workflow_graph()
 
@@ -42,6 +56,7 @@ from routers.credit_router import router as credit_router
 from routers.package_router import router as package_router
 from routers.pay_router import router as pay_router
 from routers.rag_router import router as rag_router
+from routers.account_router import router as account_router
 
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
@@ -75,6 +90,7 @@ app.include_router(package_router)
 app.include_router(pay_router)
 
 app.include_router(rag_router)
+app.include_router(account_router)
 app.include_router(admin_router)
 app.include_router(expert_router)
 app.include_router(expert_admin_router)

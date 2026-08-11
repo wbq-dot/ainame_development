@@ -1,101 +1,132 @@
+from datetime import datetime, timedelta
+from uuid import uuid4
+
+from sqlalchemy import func, select, update
+
+import settings
 from models.package import Package
+from models.user_credit import CreditLog, UserCredit
 from models.user_order import UserOrder
-from datetime import datetime
-import random
-from sqlalchemy import delete, func, select, text
-from models.user_credit import UserCredit,CreditLog
+
+class PackageUnavailableError(Exception):
+    pass
+
 
 class OrderRepo:
-
-    def __init__(self,session):
+    def __init__(self, session):
         self.session = session
 
-    # 生成订单号   字符串（时间 + 随机整数）
-    def create_order_no(self):
-        time_str = datetime.now().strftime("%Y%m%d%H%M%S")
-        random_str = str(random.randint(100000, 999999))  # random.randint(a, b)  从 [a , b] 中随机选择一个整数
-        return time_str+random_str
+    @staticmethod
+    def create_order_no() -> str:
+        return uuid4().hex
 
-    async def create_order(self,user_id:int,package:Package):
+    async def create_order(
+        self, user_id: int, package_id: int
+    ) -> tuple[UserOrder, Package]:
+        now = datetime.now()
         async with self.session.begin():
-           order =  UserOrder(
+            # 套餐状态校验和订单写入必须在同一事务内，并与管理员上下架共用行锁。
+            package = await self.session.scalar(
+                select(Package).where(Package.id == package_id).with_for_update()
+            )
+            if not package or not package.is_active:
+                raise PackageUnavailableError("套餐不存在或已下架")
+
+            order = UserOrder(
                 order_no=self.create_order_no(),
-                user_id = user_id,
+                user_id=user_id,
                 package_id=package.id,
                 amount=package.price,
                 credit_count=package.credit_count,
                 credit_type=package.credit_type,
-                status="pending"
+                status="pending",
+                created_at=now,
+                expires_at=now
+                + timedelta(minutes=settings.PAYMENT_ORDER_TIMEOUT_MINUTES),
+                next_reconcile_at=now + timedelta(seconds=30),
             )
-           self.session.add(order)
-           await self.session.flush()   # 立即存表，进行支付连接的生成
-           return order
+            self.session.add(order)
+            await self.session.flush()
+            return order, package
 
-    async def get_by_order_no(self, order_no):
+    async def get_by_order_no(
+        self, order_no: str, user_id: int | None = None
+    ) -> UserOrder | None:
+        conditions = [UserOrder.order_no == order_no]
+        if user_id is not None:
+            conditions.append(UserOrder.user_id == user_id)
         async with self.session.begin():
-            order = await  self.session.scalar(select(UserOrder).where(UserOrder.order_no == order_no))
-            return order
+            return await self.session.scalar(select(UserOrder).where(*conditions))
 
-    async def delete_expired_pending_orders(self):
-        """Delete pending orders that have been unpaid for more than one hour."""
+    async def delete_expired_pending_orders(self) -> int:
+        """兼容旧调用：保留订单并把过期待支付订单标记为关闭。"""
         async with self.session.begin():
             result = await self.session.execute(
-                delete(UserOrder).where(
+                update(UserOrder)
+                .where(
                     UserOrder.status == "pending",
-                    UserOrder.created_at <= func.date_sub(
-                        func.now(),
-                        text("INTERVAL 1 HOUR"),
-                    ),
+                    UserOrder.expires_at <= func.now(),
                 )
+                .values(status="closed", closed_at=func.now())
             )
             rowcount = result.rowcount
             return rowcount if rowcount is not None and rowcount > 0 else 0
 
-    async def pay_success(self, order_no, alipay_trade_no):
+    async def pay_success(self, order_no: str, alipay_trade_no: str):
+        """原子入账；保留原公开返回值以兼容现有调用和测试。"""
         async with self.session.begin():
-            order = await self.session.scalar(select(UserOrder).where(UserOrder.order_no == order_no).with_for_update())
-
+            order = await self.session.scalar(
+                select(UserOrder)
+                .where(UserOrder.order_no == order_no)
+                .with_for_update()
+            )
             if not order:
                 raise ValueError("订单不存在")
 
-            # 订单可能被多次异步调用，所以，非常必要判断状态，如果已经做过处理，避免重复处理
+            existing_trade_no = getattr(order, "alipay_trade_no", None)
             if order.status == "paid":
+                if existing_trade_no and existing_trade_no != alipay_trade_no:
+                    raise ValueError("订单已绑定其他支付宝交易号")
                 return order, False
-
-            # 未支付状态
             if order.status != "pending":
                 raise ValueError("订单状态异常")
+            if not alipay_trade_no:
+                raise ValueError("支付宝交易号不能为空")
 
-            # 把订单变成已付款 已付款、交易号和付款时间
             order.status = "paid"
             order.alipay_trade_no = alipay_trade_no
             order.paid_at = datetime.now()
+            order.last_reconcile_error = None
 
-            # 修改账户次数
-            userCredit: UserCredit = await self.session.scalar(
-                select(UserCredit).where(UserCredit.user_id == order.user_id).with_for_update())
-            if not userCredit:
+            credit: UserCredit | None = await self.session.scalar(
+                select(UserCredit)
+                .where(UserCredit.user_id == order.user_id)
+                .with_for_update()
+            )
+            if not credit:
                 raise ValueError("用户次数账户不存在")
 
             if order.credit_type == "logo":
-                userCredit.logo_balance += order.credit_count
-                userCredit.logo_total_recharge += order.credit_count
-                balance_after = userCredit.logo_balance
+                credit.logo_balance += order.credit_count
+                credit.logo_total_recharge += order.credit_count
+                balance_after = credit.logo_balance
                 credit_label = "Logo"
             else:
-                userCredit.balance += order.credit_count
-                userCredit.total_recharge += order.credit_count
-                balance_after = userCredit.balance
+                credit.balance += order.credit_count
+                credit.total_recharge += order.credit_count
+                balance_after = credit.balance
                 credit_label = "起名"
 
-            # 加流水
-            log = CreditLog(
-                user_id=order.user_id,
-                change_count=order.credit_count,
-                balance_after=balance_after,
-                credit_type=order.credit_type,
-                type="recharge",
-                remark=f"支付成功，充值{order.credit_count}次{credit_label}次数"
+            self.session.add(
+                CreditLog(
+                    user_id=order.user_id,
+                    change_count=order.credit_count,
+                    balance_after=balance_after,
+                    credit_type=order.credit_type,
+                    type="recharge",
+                    remark=f"支付成功，充值{order.credit_count}次{credit_label}次数",
+                    source_type="payment_credit",
+                    source_id=order_no,
+                )
             )
-            self.session.add(log)
             return order, True

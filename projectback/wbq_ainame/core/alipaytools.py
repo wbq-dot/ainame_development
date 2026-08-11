@@ -1,47 +1,79 @@
-# 支付的工具
-
 import os
 import textwrap
 from urllib.parse import urlsplit, urlunsplit
+
 from alipay import AliPay
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# 格式化私钥
-def format_private_key(key):
-    key = key.replace(" ", "").replace("\n", "")  # 合并到一行
-    key = "\n".join(textwrap.wrap(key, 64))  # 合并的一行，按照 64 个字符一行分割的列表，换行拼接成字符串
-    return f"-----BEGIN RSA PRIVATE KEY-----\n{key}\n-----END RSA PRIVATE KEY-----"
-
-# 格式化公钥
-def format_public_key(key):
-    key = key.replace(" ", "").replace("\n", "")
-    key = "\n".join(textwrap.wrap(key, 64))
-    return f"-----BEGIN PUBLIC KEY-----\n{key}\n-----END PUBLIC KEY-----"
+import settings
 
 
-# 配置Alipay 实现支付连接的生成工具
-def create_alipay():
+class PaymentConfigurationError(RuntimeError):
+    pass
+
+
+SANDBOX_GATEWAY = "https://openapi-sandbox.dl.alipaydev.com/gateway.do"
+PRODUCTION_GATEWAY = "https://openapi.alipay.com/gateway.do"
+
+
+def _format_key(key: str, label: str, begin: str, end: str) -> str:
+    if not key:
+        raise PaymentConfigurationError(f"{label}未配置")
+    normalized = key.replace(" ", "").replace("\n", "")
+    wrapped = "\n".join(textwrap.wrap(normalized, 64))
+    return f"{begin}\n{wrapped}\n{end}"
+
+
+def format_private_key(key: str) -> str:
+    return _format_key(
+        key,
+        "支付宝应用私钥",
+        "-----BEGIN RSA PRIVATE KEY-----",
+        "-----END RSA PRIVATE KEY-----",
+    )
+
+
+def format_public_key(key: str) -> str:
+    return _format_key(
+        key,
+        "支付宝公钥",
+        "-----BEGIN PUBLIC KEY-----",
+        "-----END PUBLIC KEY-----",
+    )
+
+
+def validate_payment_settings() -> None:
+    if settings.ALIPAY_ENVIRONMENT not in {"sandbox", "production"}:
+        raise PaymentConfigurationError(
+            "ALIPAY_ENVIRONMENT 必须是 sandbox 或 production"
+        )
+    required = {
+        "ALIPAY_APP_ID": settings.ALIPAY_APP_ID,
+        "ALIPAY_SELLER_ID": settings.ALIPAY_SELLER_ID,
+        "ALIPAY_NOTIFY_URL": settings.ALIPAY_NOTIFY_URL,
+        "ALIPAY_RETURN_URL": settings.ALIPAY_RETURN_URL,
+        "ALIPAY_APP_PRIVATE_KEY": settings.ALIPAY_APP_PRIVATE_KEY,
+        "ALIPAY_PUBLIC_KEY": settings.ALIPAY_PUBLIC_KEY,
+        "PAYMENT_FRONTEND_RESULT_URL": settings.PAYMENT_FRONTEND_RESULT_URL,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise PaymentConfigurationError(
+            f"支付功能缺少配置：{', '.join(missing)}"
+        )
+
+
+def create_alipay() -> AliPay:
+    if not settings.PAYMENT_ENABLED:
+        raise PaymentConfigurationError("支付功能未启用")
+    validate_payment_settings()
     return AliPay(
-        appid=os.getenv("ALIPAY_APP_ID"),
-        app_notify_url=os.getenv("ALIPAY_NOTIFY_URL") or None,
-        app_private_key_string=format_private_key(os.getenv("ALIPAY_APP_PRIVATE_KEY")),
-        alipay_public_key_string=format_public_key(os.getenv("ALIPAY_PUBLIC_KEY")),
+        appid=settings.ALIPAY_APP_ID,
+        app_notify_url=settings.ALIPAY_NOTIFY_URL,
+        app_private_key_string=format_private_key(settings.ALIPAY_APP_PRIVATE_KEY),
+        alipay_public_key_string=format_public_key(settings.ALIPAY_PUBLIC_KEY),
         sign_type="RSA2",
-        debug=True)
-
-# 获取支付的路径
-def get_alipay_gateway():
-    return os.getenv("ALIPAY_GATEWAY")
-
-# 返回给客户浏览器的路径
-def get_return_url():
-    return os.getenv("ALIPAY_RETURN_URL")
-
-# 异步通知地址，返回到服务器通知
-def get_notify_url():
-    return os.getenv("ALIPAY_NOTIFY_URL") or None
+        debug=settings.ALIPAY_ENVIRONMENT == "sandbox",
+    )
 
 
 def build_alipay_page_pay_url(
@@ -63,7 +95,7 @@ def build_alipay_page_pay_url(
         "out_trade_no": out_trade_no,
         "subject": subject,
         "total_amount": total_amount,
-        "timeout_express": "1h",
+        "timeout_express": f"{settings.PAYMENT_ORDER_TIMEOUT_MINUTES}m",
         "return_url": return_url,
     }
     if notify_url:
@@ -98,15 +130,18 @@ def _derive_expert_url(source_url: str | None, old_path: str, new_path: str):
     return urlunsplit((parts.scheme, parts.netloc, path, "", ""))
 
 
+def get_alipay_gateway() -> str:
+    configured = os.getenv("ALIPAY_GATEWAY", "").strip()
+    if configured:
+        return configured
+    if settings.ALIPAY_ENVIRONMENT == "sandbox":
+        return SANDBOX_GATEWAY
+    return PRODUCTION_GATEWAY
 
-'''
-1. 安装支付宝 SDK  
-pip install python-alipay-sdk  
-2. FastAPI 读取表单数据需要安装
-pip install python-multipart
-3. 查看是否安装成功
-pip freeze | findstr alipay 
-4.开通支付宝沙箱功能 
-支付宝开放平台 -> 登录 -> 补充基础信息 -> 控制台 -> 沙箱 -> 获取信息
-'''
 
+def get_return_url() -> str:
+    return settings.ALIPAY_RETURN_URL
+
+
+def get_notify_url() -> str:
+    return settings.ALIPAY_NOTIFY_URL

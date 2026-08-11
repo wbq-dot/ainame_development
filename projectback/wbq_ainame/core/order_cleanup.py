@@ -1,9 +1,11 @@
+"""Compatibility tasks for standard payment orders and expert orders."""
+
 import asyncio
 import logging
 import os
 
+from core.payment_service import payment_reconciliation_loop
 from models import AsyncSessionFactory
-from repository.order_repo import OrderRepo
 from modules.expert.expert_repo import ExpertRepository
 
 
@@ -14,28 +16,14 @@ ORDER_CLEANUP_INTERVAL_SECONDS = max(
 )
 
 
-async def delete_expired_pending_orders() -> int:
-    async with AsyncSessionFactory() as session:
-        return await OrderRepo(session).delete_expired_pending_orders()
-
-
 async def maintain_expert_orders() -> dict:
     async with AsyncSessionFactory() as session:
         return await ExpertRepository(session).run_maintenance()
 
 
-async def cleanup_expired_orders_loop() -> None:
-    """Clean expired pending orders immediately, then repeat periodically."""
+async def expert_order_maintenance_loop() -> None:
+    """Maintain expert orders immediately, then repeat periodically."""
     while True:
-        try:
-            deleted_count = await delete_expired_pending_orders()
-            if deleted_count:
-                logger.info("Deleted %s expired pending orders", deleted_count)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("Failed to delete expired pending orders")
-
         try:
             result = await maintain_expert_orders()
             if any(result.values()):
@@ -43,7 +31,12 @@ async def cleanup_expired_orders_loop() -> None:
         except asyncio.CancelledError:
             raise
         except Exception:
-            # 迁移尚未执行时只记录错误，不影响现有服务启动。
+            # Missing expert migrations must not prevent the app from starting.
             logger.exception("Failed to maintain expert orders")
 
         await asyncio.sleep(ORDER_CLEANUP_INTERVAL_SECONDS)
+
+
+# Legacy imports must continue to close standard payment orders through the
+# reconciliation service; those orders must never be deleted.
+cleanup_expired_orders_loop = payment_reconciliation_loop
