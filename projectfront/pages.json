@@ -45,10 +45,6 @@
       "style": { "navigationBarTitleText": "专家工作台" }
     },
     {
-      "path": "pages/community/index",
-      "style": { "navigationBarTitleText": "社区众包" }
-    },
-    {
       "path": "pages/account/index",
       "style": { "navigationBarTitleText": "账户与套餐" }
     },
@@ -57,8 +53,20 @@
       "style": { "navigationBarTitleText": "创作记录" }
     },
     {
+      "path": "pages/orders/index",
+      "style": { "navigationBarTitleText": "订单与退款" }
+    },
+    {
+      "path": "pages/payment/result",
+      "style": { "navigationBarTitleText": "支付结果" }
+    },
+    {
+      "path": "pages/security/index",
+      "style": { "navigationBarTitleText": "账号安全" }
+    },
+    {
       "path": "pages/settings/index",
-      "style": { "navigationBarTitleText": "设置与安全" }
+      "style": { "navigationBarTitleText": "通用设置" }
     },
     {
       "path": "pages/auth/login",
@@ -69,20 +77,48 @@
       "style": { "navigationBarTitleText": "注册" }
     },
     {
+      "path": "pages/admin/index",
+      "style": { "navigationBarTitleText": "管理控制台" }
+    },
+    {
       "path": "pages/admin/users",
       "style": { "navigationBarTitleText": "用户管理" }
+    },
+    {
+      "path": "pages/admin/refunds",
+      "style": { "navigationBarTitleText": "退款审批" }
+    },
+    {
+      "path": "pages/admin/packages",
+      "style": { "navigationBarTitleText": "平台套餐管理" }
+    },
+    {
+      "path": "pages/admin/package-form",
+      "style": { "navigationBarTitleText": "套餐信息" }
     },
     {
       "path": "pages/admin/login",
       "style": { "navigationBarTitleText": "管理员登录" }
     },
     {
-      "path": "pages/admin/experts",
-      "style": { "navigationBarTitleText": "专家服务管理" }
+      "path": "pages/admin/bootstrap",
+      "style": { "navigationBarTitleText": "初始化管理员" }
     },
     {
-      "path": "pages/admin/community",
-      "style": { "navigationBarTitleText": "社区内容管理" }
+      "path": "pages/admin/experts",
+      "style": { "navigationBarTitleText": "专家资质审核" }
+    },
+    {
+      "path": "pages/admin/expert-packages",
+      "style": { "navigationBarTitleText": "专家套餐审核" }
+    },
+    {
+      "path": "pages/admin/expert-orders",
+      "style": { "navigationBarTitleText": "专家争议订单" }
+    },
+    {
+      "path": "pages/admin/expert-settlements",
+      "style": { "navigationBarTitleText": "专家结算处理" }
     }
   ],
   "tabBar": {
