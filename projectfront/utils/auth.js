@@ -6,7 +6,10 @@ const ADMIN_LOGIN_URL = '/pages/admin/login'
 const ADMIN_CONSOLE_ROUTES = new Set([
   'pages/admin/users',
   'pages/admin/packages',
-  'pages/admin/refunds'
+  'pages/admin/refunds',
+  'pages/admin/experts',
+  'pages/admin/community',
+  'pages/admin/platform'
 ])
 
 let adminRedirecting = false

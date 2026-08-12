@@ -67,4 +67,5 @@ from . import payment_refund
 from modules.admin import admin_action_log
 from modules.expert import expert_models
 from modules.community import community_models
+from modules.platform import platform_models
 

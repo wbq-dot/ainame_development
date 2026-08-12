@@ -31,6 +31,7 @@ class WorkflowState(TypedDict):
     final_output: Dict[str, Any] # 存放下游 Agent 生成的结构化数据，就是存放模型输出的起名结果
     history_names: str    # 之前的记忆历史
     feedback: str
+    use_private_knowledge: bool
 
 
 class WorkflowSessionNotFoundError(ValueError):
@@ -69,8 +70,11 @@ def _knowledge_prompt(
     focus: str,
     knowledge_type: str,
     fallback_query: str | None = None,
+    use_private_knowledge: bool = True,
 ) -> str:
     """按当前起名类型检索用户私有知识库，并生成可安全拼入提示词的上下文。"""
+    if not use_private_knowledge:
+        return "【专属知识库】开放平台调用不读取普通用户私人资料。"
     rag_context = retrieve_user_knowledge(
         query=query,
         user_id=user_id,
@@ -141,6 +145,7 @@ async def human_naming_node(state: WorkflowState) -> Dict[str, Any]:
         ),
         focus="人名命名",
         knowledge_type="human",
+        use_private_knowledge=state.get("use_private_knowledge", True),
     )
     prompt = f"""你是一位精通汉语言文学与传统文化的命名专家。请为用户创作富有文化底蕴的人名。
     【姓氏】: {state['surname']}
@@ -179,6 +184,7 @@ async def company_naming_node(state: WorkflowState) -> Dict[str, Any]:
         fallback_query=core_requirement,
         focus="企业品牌命名",
         knowledge_type="company",
+        use_private_knowledge=state.get("use_private_knowledge", True),
     )
 
     # 将 rag 提示词和用户信息提示词组合
@@ -241,6 +247,7 @@ async def pet_naming_node(state: WorkflowState) -> Dict[str, Any]:
         fallback_query=core_requirement,
         focus="宠物命名",
         knowledge_type="pet",
+        use_private_knowledge=state.get("use_private_knowledge", True),
     )
     prompt = f"""你是一位充满创意的宠物达人。请为用户的宠物起一些富有灵性的名字。
     【宠物特征/性格】: {state['other']}
@@ -313,7 +320,7 @@ async def delete_naming_thread(thread_id: str) -> None:
     await naming_graph.checkpointer.adelete_thread(thread_id)
 
 
-async def generate_naming(name_info: NameIn,user_id:int):
+async def generate_naming(name_info: NameIn, user_id: int, use_private_knowledge: bool = True):
     """提供给 Router 调用的统一异步接口"""
     thread_id = str(uuid.uuid4())   # 自动的生成一个随机的id，每次生成的都不一样 uuid1 uuid3 uuid4 uuid5
 
@@ -327,6 +334,7 @@ async def generate_naming(name_info: NameIn,user_id:int):
     "other": name_info.other,
     "exclude": name_info.exclude,
     "final_output": {}
+    ,"use_private_knowledge": use_private_knowledge
     }
 
     config = {"configurable": {"thread_id": thread_id}}      # 得到 thread_id 的配置

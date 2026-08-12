@@ -7,6 +7,7 @@ from core.alipaytools import validate_payment_settings
 from core.payment_service import payment_reconciliation_loop
 from core.account_cleanup import account_cleanup_loop
 from core.order_cleanup import expert_order_maintenance_loop
+from modules.platform.maintenance import platform_maintenance_loop
 from core.workflow import init_workflow_graph, close_workflow_graph
 from fastapi.middleware.cors import CORSMiddleware
 import settings
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
     payment_reconciliation_task = asyncio.create_task(payment_reconciliation_loop())
     account_cleanup_task = asyncio.create_task(account_cleanup_loop())
     expert_order_maintenance_task = asyncio.create_task(expert_order_maintenance_loop())
+    platform_maintenance_task = asyncio.create_task(platform_maintenance_loop())
     # 在这个 yield 关键字之上的所有代码，都会在 FastAPI 应用启动、但还没有开始接收任何外部网络请求的时候执行
     # 在这个 yield 关键字之下的所有代码，只有在你停止服务器，或者服务器被关闭时才会执行。
     try:
@@ -30,6 +32,7 @@ async def lifespan(app: FastAPI):
             payment_reconciliation_task,
             account_cleanup_task,
             expert_order_maintenance_task,
+            platform_maintenance_task,
         )
         for task in background_tasks:
             task.cancel()
@@ -67,6 +70,10 @@ from modules.expert.expert_admin_router import router as expert_admin_router
 from modules.expert.expert_pay_router import router as expert_pay_router
 from modules.community.community_router import router as community_router
 from modules.community.community_router import admin_router as community_admin_router
+from modules.platform.developer_router import router as developer_router
+from modules.platform.openapi_router import router as openapi_router
+from modules.platform.billing_router import router as developer_billing_router
+from modules.platform.platform_admin_router import router as platform_admin_router
 
 
 BACKEND_DIR = Path(__file__).resolve().parent   # Path(__file__) 当前的文件路径 resolve() 解析 parent 上层的文件夹   D:\data\wbq_ainame
@@ -97,6 +104,10 @@ app.include_router(expert_admin_router)
 app.include_router(expert_pay_router)
 app.include_router(community_router)
 app.include_router(community_admin_router)
+app.include_router(developer_router)
+app.include_router(openapi_router)
+app.include_router(developer_billing_router)
+app.include_router(platform_admin_router)
 
 @app.get("/")
 async def root():

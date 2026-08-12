@@ -81,6 +81,14 @@
       "style": { "navigationBarTitleText": "注册" }
     },
     {
+      "path": "pages/developer/login",
+      "style": { "navigationBarTitleText": "开发者登录" }
+    },
+    {
+      "path": "pages/developer/console",
+      "style": { "navigationBarTitleText": "开发者控制台" }
+    },
+    {
       "path": "pages/admin/users",
       "style": { "navigationBarTitleText": "用户管理" }
     },
@@ -107,6 +115,10 @@
     {
       "path": "pages/admin/community",
       "style": { "navigationBarTitleText": "社区内容管理" }
+    },
+    {
+      "path": "pages/admin/platform",
+      "style": { "navigationBarTitleText": "开放平台管理" }
     }
   ],
   "tabBar": {

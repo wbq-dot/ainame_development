@@ -31,6 +31,9 @@
     <view v-if="user" class="expert-entry-grid">
       <view class="expert-entry" @click="openExpertCenter"><view class="expert-entry-icon purple">专</view><view><view class="expert-entry-title">专家服务</view><view class="expert-entry-desc">专家起名订单、入驻与工作台统一入口</view></view><view class="expert-entry-arrow">›</view></view>
     </view>
+    <view class="expert-entry-grid">
+      <view class="expert-entry" @click="openDeveloperPortal"><view class="expert-entry-icon purple">API</view><view><view class="expert-entry-title">开发者开放平台</view><view class="expert-entry-desc">独立账号、API Key、批量命名、统计与推广</view></view><view class="expert-entry-arrow">›</view></view>
+    </view>
 
     <view v-if="isAdmin" class="admin-entry" @click="openAdminUsers">
       <view class="admin-icon">管</view>
@@ -44,6 +47,9 @@
       <view class="admin-icon">专</view>
       <view class="admin-entry-main"><view class="admin-entry-title">专家服务管理</view><view class="admin-entry-desc">审核专家、套餐、争议退款与结算</view></view>
       <view class="admin-arrow">›</view>
+    </view>
+    <view v-if="isAdmin" class="admin-entry expert-admin" @click="openAdminPlatform">
+      <view class="admin-icon">B</view><view class="admin-entry-main"><view class="admin-entry-title">开放平台管理</view><view class="admin-entry-desc">开发者、API 套餐、推广佣金与任务</view></view><view class="admin-arrow">›</view>
     </view>
 
     <view class="feature-section">
@@ -175,6 +181,8 @@ export default {
     goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) },
     openAdminUsers() { uni.navigateTo({ url: '/pages/admin/users' }) },
     openAdminExperts() { uni.navigateTo({ url: '/pages/admin/experts' }) },
+    openAdminPlatform() { uni.navigateTo({ url: '/pages/admin/platform' }) },
+    openDeveloperPortal() { uni.navigateTo({ url: '/pages/developer/login' }) },
     openExpertCenter() { uni.navigateTo({ url: '/pages/expert/center' }) },
     async refreshUser() {
       try {
