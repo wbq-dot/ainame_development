@@ -57,7 +57,7 @@ from routers.expert_pay_router import router as expert_pay_router
 BACKEND_DIR = Path(__file__).resolve().parent   # Path(__file__) 当前的文件路径 resolve() 解析 parent 上层的文件夹   D:\data\wbq_ainame
 STATIC_DIR = BACKEND_DIR / "static"     # 路径拼接
 (STATIC_DIR / "logos").mkdir(parents=True, exist_ok=True)  # 创建父子文件夹，存在不创建
-# 把服务器上的 STATIC_DIR 文件夹，开放到网址的 /static 路径下。以后用户访问 /static/xxx.png，服务器就会去那个文件夹里找 xxx.png 并返回给他。
+# 把服务器上的 STATIC_DIR 文件夹，开放到网址的 /static 路径下。以后用户访问 /static/.env.png，服务器就会去那个文件夹里找 .env.png 并返回给他。
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 app.include_router(logo_router)
