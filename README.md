@@ -155,9 +155,12 @@ PAYMENT_ORDER_TIMEOUT_MINUTES=********
 PAYMENT_RECONCILE_INTERVAL_SECONDS=********
 PAYMENT_RECONCILE_BATCH_SIZE=********
 REFUND_WINDOW_HOURS=********
+EXPERT_ALIPAY_NOTIFY_URL=********
+EXPERT_ALIPAY_RETURN_URL=********
 
 CHROMDB_PATH=********
 UPLOAD_FOLDER=********
+EXPERT_PRIVATE_STORAGE_DIR=********
 
 POST_GRESQL_DB=********
 RABBITMQ_URL=********
@@ -168,6 +171,8 @@ WANXIANG_MODEL=********
 
 APP_BASE_URL=********
 ```
+
+专家模块不使用独立的 `.env`，而是复用 `DB_URI` 和上述支付宝应用配置，不需要重复配置支付密钥。三个 `EXPERT_*` 配置项仅用于覆盖支付回调地址或私有存储目录，普通部署可以不填写。
 
 ### 配置项用途
 
@@ -202,8 +207,11 @@ APP_BASE_URL=********
 | `PAYMENT_RECONCILE_INTERVAL_SECONDS` | 后台主动查单/查退任务的扫描间隔，单位为秒，默认 30，代码限制最小 10；它是任务扫描频率，不是单条失败记录的固定重试间隔，失败记录按数据库中的退避时间重试 |
 | `PAYMENT_RECONCILE_BATCH_SIZE` | 每个后台进程每轮最多领取的待查订单数和待查退款数，默认 50，允许范围 1～100；多进程通过数据库行锁和租约避免同时处理同一条记录 |
 | `REFUND_WINDOW_HOURS` | 用户从订单 `paid_at` 开始可提交整单退款申请的时限，单位为小时，默认 24，最小 1；该值只决定申请资格，退款仍需管理员审批，审批时会重新校验对应类型的次数余额 |
+| `EXPERT_ALIPAY_NOTIFY_URL` | 可选的专家订单支付宝异步通知地址；不配置时根据 `ALIPAY_NOTIFY_URL` 的域名和反向代理前缀自动推导为 `/expert-pay/notify` |
+| `EXPERT_ALIPAY_RETURN_URL` | 可选的专家订单支付宝同步回跳地址；不配置时根据 `ALIPAY_RETURN_URL` 的域名和反向代理前缀自动推导为 `/expert-pay/return` |
 | `CHROMDB_PATH` | Chroma 向量数据库的本地保存目录 |
 | `UPLOAD_FOLDER` | 上传文件的本地保存目录 |
+| `EXPERT_PRIVATE_STORAGE_DIR` | 可选的专家资质和交付文件私有存储目录；不配置时使用 `projectback/wbq_ainame/private_storage/expert` |
 | `POST_GRESQL_DB` | PostgreSQL 连接地址，供工作流等功能使用 |
 | `RABBITMQ_URL` | RabbitMQ 消息队列连接地址 |
 | `DASHSCOPE_API_KEY` | 阿里云百炼 API Key |
@@ -253,6 +261,20 @@ python rag_worker.py
 ```
 
 只测试普通接口时，可先不启动该任务进程；知识库上传和处理功能将不可用。
+
+## 后端运维与专家服务
+
+后端运维脚本统一放在 `projectback/wbq_ainame/scripts`。进入后端目录后，以模块方式运行：
+
+```bash
+cd projectback/wbq_ainame
+python -m scripts.manage_admin --help
+python -m scripts.cleanup_expert_data --help
+python -m scripts.check_db
+```
+
+专家服务的支付回调行为和数据库迁移说明见
+[专家服务运维](projectback/wbq_ainame/docs/expert_service.md)。
 
 ## 启动前端
 

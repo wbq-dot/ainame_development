@@ -1,0 +1,299 @@
+<template>
+  <view class="expert-operation-page">
+    <view class="admin-hero">
+      <view class="hero-copy">
+        <view class="eyebrow">{{ pageMeta.eyebrow }}</view>
+        <view class="hero-title">{{ pageMeta.title }}</view>
+        <view class="hero-desc">{{ pageMeta.description }}</view>
+      </view>
+      <view class="hero-actions">
+        <view class="count"><b>{{ items.length }}</b><text>{{ pageMeta.countLabel }}</text></view>
+        <button class="admin-home-btn" @click="backToConsole">操作列表</button>
+      </view>
+    </view>
+
+    <view class="scope-note"><text>{{ pageMeta.icon }}</text><view><b>本页仅处理{{ pageMeta.title }}</b><small>{{ pageMeta.scope }}</small></view></view>
+    <view v-if="loading" class="state-card">正在加载{{ pageMeta.loadingLabel }}…</view>
+
+    <template v-if="!loading && section === 'applications'">
+      <view v-for="item in items" :key="item.id" class="admin-card">
+        <view class="card-top"><view class="card-main"><view class="name">{{ item.display_name }}</view><view class="sub">{{ item.title }} · {{ item.experience_years }}年经验 · {{ levelText(item.expert_level) }}</view></view><view class="badge" :class="item.status">{{ profileStatus(item.status) }}</view></view>
+        <view class="content">{{ item.bio }}</view>
+        <view class="tags">擅长：{{ item.specialties }}</view>
+        <view v-if="item.review_note" class="note">审核备注：{{ item.review_note }}</view>
+        <view class="actions">
+          <button v-if="item.credential_file_name" class="small-btn credential" @click="downloadCredential(item)">查看资质 PDF</button>
+          <button v-if="['pending','rejected'].includes(item.status)" class="small-btn approve" @click="openAction('profile','approve',item)">通过</button>
+          <button v-if="item.status === 'pending'" class="small-btn reject" @click="openAction('profile','reject',item)">驳回</button>
+          <button v-if="item.status === 'approved'" class="small-btn reject" @click="openAction('profile','suspend',item)">停用</button>
+          <button v-if="item.status === 'suspended'" class="small-btn approve" @click="openAction('profile','restore',item)">恢复</button>
+        </view>
+      </view>
+    </template>
+
+    <template v-if="!loading && section === 'packages'">
+      <view v-for="item in items" :key="item.id" class="admin-card">
+        <view class="card-top"><view class="card-main"><view class="name">{{ item.name }}</view><view class="sub">{{ item.expert_name }} · ¥{{ item.price }} · {{ item.delivery_days }}天</view></view><view class="badge" :class="item.status">{{ packageStatus(item.status) }}</view></view>
+        <view class="content">{{ item.description }}</view>
+        <view class="tags">交付：{{ item.deliverables }}</view>
+        <view v-if="item.review_note" class="note">审核备注：{{ item.review_note }}</view>
+        <view class="actions">
+          <button v-if="item.status === 'pending'" class="small-btn approve" @click="openAction('package','approve',item)">通过上架</button>
+          <button v-if="item.status === 'pending'" class="small-btn reject" @click="openAction('package','reject',item)">驳回</button>
+          <button v-if="item.status === 'active'" class="small-btn reject" @click="openAction('package','offline',item)">下架</button>
+        </view>
+      </view>
+    </template>
+
+    <template v-if="!loading && section === 'orders'">
+      <view v-for="item in items" :key="item.id" class="admin-card">
+        <view class="card-top"><view class="card-main"><view class="name">{{ item.package_name }}</view><view class="sub">{{ item.order_no }} · {{ item.expert_name }}</view></view><view class="badge" :class="item.service_status">{{ orderStatus(item.service_status) }}</view></view>
+        <view class="order-money"><text>实付 ¥{{ item.amount }}</text><text>平台 ¥{{ item.platform_fee }}</text><text>专家 ¥{{ item.expert_income }}</text></view>
+        <view v-if="item.dispute_reason" class="note danger">争议：{{ item.dispute_reason }}</view>
+        <view v-if="item.admin_note" class="note">处理备注：{{ item.admin_note }}</view>
+        <view class="actions">
+          <button v-if="item.service_status === 'disputed'" class="small-btn approve" @click="openAction('order','complete',item)">判定完成</button>
+          <button v-if="['disputed','cancelled'].includes(item.service_status) && ['paid','refund_pending'].includes(item.payment_status)" class="small-btn reject" @click="openAction('order','refund',item)">登记人工退款</button>
+        </view>
+      </view>
+    </template>
+
+    <template v-if="!loading && section === 'settlements'">
+      <view v-for="item in items" :key="item.id" class="admin-card">
+        <view class="card-top"><view class="card-main"><view class="name">结算 ¥{{ item.amount }}</view><view class="sub">专家资料 ID {{ item.expert_id }} · {{ formatDate(item.created_at) }}</view></view><view class="badge" :class="item.status">{{ settlementStatus(item.status) }}</view></view>
+        <view v-if="item.remark" class="note">{{ item.remark }}</view>
+        <view v-if="item.payment_reference" class="tags">打款流水：{{ item.payment_reference }}</view>
+        <view v-if="item.status === 'pending'" class="actions">
+          <button class="small-btn approve" @click="openAction('settlement','paid',item)">登记已打款</button>
+          <button class="small-btn reject" @click="openAction('settlement','reject',item)">驳回</button>
+        </view>
+      </view>
+    </template>
+
+    <view v-if="!loading && !items.length" class="state-card">{{ pageMeta.emptyText }}</view>
+
+    <view v-if="actionVisible" class="modal-mask" @click.self="closeAction">
+      <view class="action-sheet">
+        <view class="sheet-title">{{ actionTitle }}</view>
+        <view class="impact">{{ actionImpact }}</view>
+        <view v-if="actionKind === 'profile' && actionDecision === 'approve'" class="level-picker">
+          <view class="field-label">分配专家等级</view>
+          <view class="level-options"><view v-for="item in levels" :key="item.value" :class="{ active: selectedLevel === item.value }" @click="selectedLevel = item.value">{{ item.label }}</view></view>
+        </view>
+        <textarea v-model.trim="note" class="field-textarea" maxlength="500" placeholder="处理备注（驳回、退款和争议处理时必填）" />
+        <input v-if="needsReference" v-model.trim="reference" class="field-input reference" maxlength="100" :placeholder="actionDecision === 'refund' ? '退款流水号（必填）' : '打款流水号（必填）'" />
+        <view class="sheet-actions"><button class="ghost-btn" @click="closeAction">取消</button><button class="primary-btn" :class="{ danger: dangerAction }" :loading="submitting" :disabled="submitting" @click="confirmAction">下一步确认</button></view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+import { api } from '../../api'
+import { handleAdminAuthError, requireAdminSession } from '../../utils/auth'
+
+const PAGE_META = {
+  applications: { eyebrow: 'EXPERT REVIEW', title: '专家资质审核', description: '审核专家入驻资料并维护专家资格', countLabel: '份资料', loadingLabel: '专家资料', icon: '审', scope: '资质查看、审核通过、驳回、停用与恢复。', emptyText: '暂无专家入驻资料' },
+  packages: { eyebrow: 'SERVICE REVIEW', title: '专家套餐审核', description: '审核专家服务内容与上架状态', countLabel: '个套餐', loadingLabel: '专家套餐', icon: '服', scope: '套餐通过上架、驳回与下架。', emptyText: '暂无专家套餐' },
+  orders: { eyebrow: 'DISPUTE DESK', title: '专家争议订单', description: '处理专家服务争议与人工退款登记', countLabel: '笔订单', loadingLabel: '专家订单', icon: '争', scope: '争议判定与人工退款登记，不会自动划款。', emptyText: '暂无专家服务订单' },
+  settlements: { eyebrow: 'SETTLEMENT DESK', title: '专家结算处理', description: '核对结算申请并登记线下打款', countLabel: '笔结算', loadingLabel: '结算申请', icon: '结', scope: '登记线下打款流水或驳回结算申请。', emptyText: '暂无专家结算申请' }
+}
+
+const LOADERS = {
+  applications: 'getAdminExpertApplications',
+  packages: 'getAdminExpertPackages',
+  orders: 'getAdminExpertOrders',
+  settlements: 'getAdminExpertSettlements'
+}
+
+export default {
+  props: {
+    section: { type: String, required: true }
+  },
+  data() {
+    return {
+      items: [],
+      levels: [
+        { label: '普通专家', value: 'ordinary' },
+        { label: '知名专家', value: 'renowned' },
+        { label: '顶级专家', value: 'top' }
+      ],
+      selectedLevel: 'ordinary',
+      loading: false,
+      actionVisible: false,
+      actionKind: '',
+      actionDecision: '',
+      selected: null,
+      note: '',
+      reference: '',
+      submitting: false
+    }
+  },
+  computed: {
+    pageMeta() {
+      return PAGE_META[this.section] || PAGE_META.applications
+    },
+    needsReference() {
+      return this.actionDecision === 'refund' || this.actionDecision === 'paid'
+    },
+    dangerAction() {
+      return ['reject', 'suspend', 'offline', 'refund'].includes(this.actionDecision)
+    },
+    actionTitle() {
+      return { approve: '审核通过', reject: '驳回或拒绝', suspend: '停用专家', restore: '恢复专家', offline: '下架套餐', complete: '判定订单完成', refund: '登记人工退款', paid: '登记线下打款' }[this.actionDecision] || '管理操作'
+    },
+    actionImpact() {
+      const name = this.selected ? (this.selected.display_name || this.selected.name || this.selected.order_no || `申请${this.selected.id}`) : ''
+      return {
+        approve: `通过“${name}”，相应专家角色或套餐将生效。`,
+        reject: `驳回“${name}”，请填写原因。`,
+        suspend: `停用专家“${name}”，其上架套餐会同步下架，进行中订单保留。`,
+        restore: `恢复专家“${name}”的专家角色与工作台权限，套餐不会自动上架。`,
+        offline: `下架“${name}”，新用户将无法购买，已有订单不受影响。`,
+        complete: `将争议订单“${name}”判定完成，专家收入变为可结算。`,
+        refund: `只登记订单“${name}”已由管理员人工退款；本系统不会自动划款。`,
+        paid: `只登记结算“${name}”已经线下打款；本系统不会自动付款。`
+      }[this.actionDecision] || ''
+    }
+  },
+  mounted() {
+    if (requireAdminSession()) this.load()
+  },
+  methods: {
+    backToConsole() { uni.redirectTo({ url: '/pages/admin/index' }) },
+    async load() {
+      const loader = LOADERS[this.section]
+      if (!loader || this.loading) return
+      this.loading = true
+      try {
+        this.items = await api[loader]()
+      } catch (error) {
+        uni.showToast({ title: error.message, icon: 'none', duration: 3000 })
+        handleAdminAuthError(error)
+      } finally {
+        this.loading = false
+      }
+    },
+    profileStatus(value) { return { pending: '待审核', approved: '正常', rejected: '已驳回', suspended: '已停用' }[value] || value },
+    levelText(value) { return { ordinary: '普通专家', renowned: '知名专家', top: '顶级专家' }[value] || '普通专家' },
+    packageStatus(value) { return { draft: '草稿', pending: '待审核', active: '已上架', rejected: '已驳回', offline: '已下架' }[value] || value },
+    orderStatus(value) { return { pending_payment: '待付款', pending_acceptance: '待接单', working: '进行中', delivered: '待确认', revision_requested: '修改中', completed: '已完成', disputed: '争议中', cancelled: '已取消' }[value] || value },
+    settlementStatus(value) { return { pending: '待处理', paid: '已打款', rejected: '已驳回' }[value] || value },
+    formatDate(value) { return value ? String(value).replace('T', ' ').slice(0, 16) : '—' },
+    openAction(kind, decision, item) {
+      this.actionKind = kind
+      this.actionDecision = decision
+      this.selected = item
+      this.selectedLevel = item.expert_level || 'ordinary'
+      this.note = ''
+      this.reference = ''
+      this.actionVisible = true
+    },
+    closeAction() {
+      if (this.submitting) return
+      this.actionVisible = false
+      this.selected = null
+    },
+    async downloadCredential(item) {
+      try {
+        const path = await api.downloadExpertCredential(item.id)
+        uni.openDocument({ filePath: path, fileType: 'pdf', showMenu: true })
+      } catch (error) {
+        uni.showToast({ title: error.message, icon: 'none' })
+        handleAdminAuthError(error)
+      }
+    },
+    confirmAction() {
+      if (['reject', 'complete', 'refund'].includes(this.actionDecision) && this.note.length < 2) {
+        uni.showToast({ title: '请填写至少2字处理备注', icon: 'none' })
+        return
+      }
+      if (this.needsReference && !this.reference) {
+        uni.showToast({ title: '请填写对应资金流水号', icon: 'none' })
+        return
+      }
+      uni.showModal({
+        title: '最终确认',
+        content: `准确动作：${this.actionImpact}\n${this.note ? `备注：${this.note}\n` : ''}${this.reference ? `流水号：${this.reference}\n` : ''}\n确认执行吗？`,
+        confirmText: '确认执行',
+        confirmColor: this.dangerAction ? '#d94a64' : '#6257e8',
+        success: ({ confirm }) => {
+          if (confirm) this.executeAction()
+        }
+      })
+    },
+    async executeAction() {
+      this.submitting = true
+      try {
+        if (this.actionKind === 'profile') await api.decideExpertApplication(this.selected.id, this.actionDecision, this.note, this.actionDecision === 'approve' ? this.selectedLevel : null)
+        if (this.actionKind === 'package') await api.decideExpertPackage(this.selected.id, this.actionDecision, this.note)
+        if (this.actionKind === 'order') await api.resolveExpertOrder(this.selected.id, { resolution: this.actionDecision, note: this.note, refund_reference: this.actionDecision === 'refund' ? this.reference : null })
+        if (this.actionKind === 'settlement') await api.processExpertSettlement(this.selected.id, { decision: this.actionDecision, note: this.note || null, payment_reference: this.actionDecision === 'paid' ? this.reference : null })
+        this.actionVisible = false
+        await this.load()
+        uni.showToast({ title: '操作已记录', icon: 'success' })
+      } catch (error) {
+        uni.showToast({ title: error.message, icon: 'none', duration: 3000 })
+        handleAdminAuthError(error)
+      } finally {
+        this.submitting = false
+      }
+    }
+  }
+}
+</script>
+
+<style scoped>
+.expert-operation-page { min-height: 100vh; padding: 28rpx 28rpx 70rpx; background: #f3f5f9; }
+.admin-hero { display: flex; align-items: center; justify-content: space-between; gap: 22rpx; padding: 34rpx; color: #fff; background: linear-gradient(135deg,#171d2d,#393e58); border-radius: 29rpx; box-shadow: 0 18rpx 40rpx rgba(23,29,45,.18); }
+.hero-copy { flex: 1; min-width: 0; }
+.eyebrow { color: #f2d586; font-size: 17rpx; font-weight: 800; letter-spacing: 4rpx; }
+.hero-title { margin-top: 10rpx; font-size: 39rpx; font-weight: 850; }
+.hero-desc { margin-top: 8rpx; color: #c9ceda; font-size: 20rpx; line-height: 1.5; }
+.hero-actions { display: flex; flex-direction: column; align-items: stretch; gap: 10rpx; }
+.count { display: flex; flex-direction: column; align-items: center; min-width: 105rpx; padding: 12rpx; color: #d7dbea; background: rgba(255,255,255,.1); border-radius: 20rpx; font-size: 17rpx; }
+.count b { color: #f2d586; font-size: 33rpx; }
+.admin-home-btn { height: 54rpx; margin: 0; padding: 0 18rpx; color: #f5df9e; background: rgba(255,255,255,.08); border: 1rpx solid rgba(245,223,158,.35); border-radius: 15rpx; font-size: 18rpx; line-height: 52rpx; }
+.scope-note { display: flex; align-items: center; gap: 16rpx; margin-top: 20rpx; padding: 20rpx 22rpx; color: #454d62; background: #e7eaf0; border-radius: 20rpx; }
+.scope-note > text { display: flex; align-items: center; justify-content: center; width: 52rpx; height: 52rpx; color: #fff; background: #6257e8; border-radius: 15rpx; font-size: 20rpx; font-weight: 850; }
+.scope-note b { display: block; font-size: 21rpx; }
+.scope-note small { display: block; margin-top: 4rpx; color: #7d8698; font-size: 18rpx; line-height: 1.4; }
+.state-card { margin-top: 20rpx; padding: 55rpx 20rpx; color: #8e97a8; background: #fff; border-radius: 24rpx; text-align: center; }
+.admin-card { margin-top: 18rpx; padding: 26rpx; background: #fff; border-radius: 24rpx; box-shadow: 0 10rpx 30rpx rgba(36,55,86,.05); }
+.card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18rpx; }
+.card-main { flex: 1; min-width: 0; }
+.name { font-size: 27rpx; font-weight: 830; }
+.sub { margin-top: 6rpx; color: #929aa9; font-size: 19rpx; line-height: 1.45; }
+.badge { flex: 0 0 auto; padding: 8rpx 13rpx; color: #6c61aa; background: #efedff; border-radius: 999rpx; font-size: 18rpx; }
+.badge.approved,.badge.active,.badge.paid,.badge.completed { color: #19734b; background: #e7f7ef; }
+.badge.rejected,.badge.suspended,.badge.disputed,.badge.cancelled { color: #a43d52; background: #fff0f3; }
+.content { margin-top: 17rpx; color: #667185; font-size: 21rpx; line-height: 1.65; }
+.tags { margin-top: 12rpx; color: #6257a5; font-size: 20rpx; }
+.note { margin-top: 14rpx; padding: 14rpx; color: #80632d; background: #fff5dc; border-radius: 13rpx; font-size: 19rpx; line-height: 1.55; }
+.note.danger { color: #9f4658; background: #fff0f3; }
+.actions { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 18rpx; }
+.small-btn { width: auto; height: 62rpx; margin: 0; padding: 0 21rpx; border-radius: 15rpx; font-size: 20rpx; line-height: 62rpx; }
+.small-btn.approve { color: #1c754e; background: #e7f7ef; }
+.small-btn.reject { color: #ad4056; background: #fff0f3; }
+.small-btn.credential { color: #5147b5; background: #efedff; }
+.order-money { display: flex; gap: 12rpx; margin-top: 17rpx; }
+.order-money text { flex: 1; padding: 13rpx 6rpx; color: #6f788b; background: #f4f5f8; border-radius: 12rpx; font-size: 18rpx; text-align: center; }
+.modal-mask { position: fixed; z-index: 99; inset: 0; display: flex; align-items: flex-end; padding: 28rpx; background: rgba(15,20,35,.55); }
+.action-sheet { width: 100%; padding: 30rpx; background: #fff; border-radius: 30rpx; }
+.sheet-title { font-size: 31rpx; font-weight: 850; }
+.impact { margin-top: 16rpx; padding: 17rpx; color: #687386; background: #f3f4f7; border-radius: 15rpx; font-size: 21rpx; line-height: 1.65; }
+.action-sheet .field-textarea { margin-top: 18rpx; min-height: 140rpx; }
+.reference { margin-top: 14rpx; }
+.sheet-actions { display: flex; gap: 14rpx; margin-top: 22rpx; }
+.sheet-actions button { flex: 1; margin: 0; }
+.primary-btn.danger { background: #d94a64; }
+.level-picker { margin-top: 17rpx; }
+.level-options { display: flex; gap: 10rpx; margin-top: 9rpx; }
+.level-options view { flex: 1; padding: 13rpx 5rpx; color: #7a8394; background: #f1f2f5; border-radius: 12rpx; font-size: 18rpx; text-align: center; }
+.level-options .active { color: #fff; background: #6257e8; }
+
+@media (min-width: 1000px) {
+  .expert-operation-page { max-width: 1180px; margin: 0 auto; padding: 34px; }
+  .admin-card { padding: 28px; }
+}
+</style>

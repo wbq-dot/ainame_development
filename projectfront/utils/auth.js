@@ -1,12 +1,18 @@
 const ACCESS_TOKEN_KEY = 'ainame_access_token'
 const REFRESH_TOKEN_KEY = 'ainame_refresh_token'
 const USER_KEY = 'ainame_user'
-const ADMIN_HOME_URL = '/pages/admin/users'
+const ADMIN_HOME_URL = '/pages/admin/index'
 const ADMIN_LOGIN_URL = '/pages/admin/login'
 const ADMIN_CONSOLE_ROUTES = new Set([
+  'pages/admin/index',
   'pages/admin/users',
+  'pages/admin/refunds',
   'pages/admin/packages',
-  'pages/admin/refunds'
+  'pages/admin/package-form',
+  'pages/admin/experts',
+  'pages/admin/expert-packages',
+  'pages/admin/expert-orders',
+  'pages/admin/expert-settlements'
 ])
 
 let adminRedirecting = false

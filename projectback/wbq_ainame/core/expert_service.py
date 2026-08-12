@@ -53,7 +53,7 @@ def create_expert_order_no(now: datetime | None = None) -> str:
 
 
 def private_storage_dir() -> Path:
-    default_dir = Path(__file__).resolve().parents[2] / "private_storage" / "expert"
+    default_dir = Path(__file__).resolve().parents[1] / "private_storage" / "expert"
     return Path(os.getenv("EXPERT_PRIVATE_STORAGE_DIR", str(default_dir))).resolve()
 
 

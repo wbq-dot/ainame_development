@@ -1,5 +1,6 @@
 import secrets
 from datetime import datetime
+from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy import func, or_, select, text
@@ -7,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.User import User
 from models.package import Package
-from modules.admin.admin_action_log import AdminActionLog
+from models.admin_action_log import AdminActionLog
 from models.user_credit import CreditLog, UserCredit
 
 
@@ -28,6 +29,10 @@ class AdminEmailConflict(Exception):
 
 
 class AdminPackageNotFound(Exception):
+    pass
+
+
+class AdminPackageNameConflict(Exception):
     pass
 
 
@@ -171,6 +176,102 @@ class AdminRepository:
                 select(Package).order_by(Package.credit_type, Package.price, Package.id)
             )
             return list(result.all())
+
+    async def get_package(self, package_id: int) -> Package:
+        async with self.session.begin():
+            package = await self.session.scalar(
+                select(Package).where(Package.id == package_id)
+            )
+            if not package:
+                raise AdminPackageNotFound("套餐不存在")
+            return package
+
+    async def create_package(
+        self,
+        admin_user_id: int,
+        name: str,
+        price: Decimal,
+        credit_count: int,
+        credit_type: str,
+    ) -> Package:
+        async with self.session.begin():
+            existing = await self.session.scalar(
+                select(Package.id).where(Package.name == name)
+            )
+            if existing is not None:
+                raise AdminPackageNameConflict("套餐名称已经存在")
+
+            package = Package(
+                name=name,
+                price=price,
+                credit_count=credit_count,
+                credit_type=credit_type,
+                is_active=False,
+            )
+            self.session.add(package)
+            await self.session.flush()
+            self.session.add(
+                self._build_package_log(
+                    admin_user_id,
+                    package.id,
+                    "package_create",
+                    f"新建套餐：{package.name}",
+                )
+            )
+            await self.session.flush()
+            return package
+
+    async def update_package(
+        self,
+        admin_user_id: int,
+        package_id: int,
+        name: str,
+        price: Decimal,
+        credit_count: int,
+        credit_type: str,
+    ) -> tuple[Package, bool]:
+        async with self.session.begin():
+            package = await self.session.scalar(
+                select(Package).where(Package.id == package_id).with_for_update()
+            )
+            if not package:
+                raise AdminPackageNotFound("套餐不存在")
+            if package.is_active:
+                raise AdminStateConflict("已上架套餐不能编辑，请先下架")
+
+            name_owner = await self.session.scalar(
+                select(Package.id).where(
+                    Package.name == name,
+                    Package.id != package_id,
+                )
+            )
+            if name_owner is not None:
+                raise AdminPackageNameConflict("套餐名称已经存在")
+
+            changes = []
+            for field, value, label in (
+                ("name", name, "名称"),
+                ("price", price, "价格"),
+                ("credit_count", credit_count, "次数"),
+                ("credit_type", credit_type, "权益类型"),
+            ):
+                if getattr(package, field) != value:
+                    setattr(package, field, value)
+                    changes.append(label)
+
+            if not changes:
+                return package, False
+
+            self.session.add(
+                self._build_package_log(
+                    admin_user_id,
+                    package.id,
+                    "package_update",
+                    f"修改字段：{'、'.join(changes)}",
+                )
+            )
+            await self.session.flush()
+            return package, True
 
     async def change_package_status(
         self,
@@ -374,11 +475,12 @@ class AdminRepository:
         admin_user_id: int,
         target_package_id: int,
         action: str,
+        reason: str | None = None,
     ) -> AdminActionLog:
         return AdminActionLog(
             admin_user_id=admin_user_id,
             target_user_id=None,
             target_package_id=target_package_id,
             action=action,
-            reason=None,
+            reason=reason,
         )

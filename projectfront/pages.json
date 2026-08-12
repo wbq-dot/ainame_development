@@ -77,6 +77,10 @@
       "style": { "navigationBarTitleText": "注册" }
     },
     {
+      "path": "pages/admin/index",
+      "style": { "navigationBarTitleText": "管理控制台" }
+    },
+    {
       "path": "pages/admin/users",
       "style": { "navigationBarTitleText": "用户管理" }
     },
@@ -86,7 +90,11 @@
     },
     {
       "path": "pages/admin/packages",
-      "style": { "navigationBarTitleText": "套餐管理" }
+      "style": { "navigationBarTitleText": "平台套餐管理" }
+    },
+    {
+      "path": "pages/admin/package-form",
+      "style": { "navigationBarTitleText": "套餐信息" }
     },
     {
       "path": "pages/admin/login",
@@ -98,7 +106,19 @@
     },
     {
       "path": "pages/admin/experts",
-      "style": { "navigationBarTitleText": "专家服务管理" }
+      "style": { "navigationBarTitleText": "专家资质审核" }
+    },
+    {
+      "path": "pages/admin/expert-packages",
+      "style": { "navigationBarTitleText": "专家套餐审核" }
+    },
+    {
+      "path": "pages/admin/expert-orders",
+      "style": { "navigationBarTitleText": "专家争议订单" }
+    },
+    {
+      "path": "pages/admin/expert-settlements",
+      "style": { "navigationBarTitleText": "专家结算处理" }
     }
   ],
   "tabBar": {

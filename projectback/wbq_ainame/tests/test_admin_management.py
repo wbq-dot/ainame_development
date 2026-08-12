@@ -7,13 +7,15 @@ from pydantic import ValidationError
 
 from models.package import Package
 from models.user_credit import CreditLog, UserCredit
-from modules.admin.admin_action_log import AdminActionLog
-from modules.admin.admin_repo import (
+from models.admin_action_log import AdminActionLog
+from repository.admin_repo import (
     AdminRepository,
+    AdminPackageNameConflict,
+    AdminPackageNotFound,
     AdminStateConflict,
     AdminTargetForbidden,
 )
-from modules.admin.admin_schemas import AdminCreditAdjustmentIn
+from schemas.admin_schemas import AdminCreditAdjustmentIn, AdminPackageWriteIn
 
 
 class FakeTransaction:
@@ -60,6 +62,13 @@ class FakePackageListSession(FakeSession):
     async def scalars(self, statement):
         self.statements.append(str(statement))
         return FakeScalarCollection(self.packages)
+
+
+class FakePackageWriteSession(FakeSession):
+    async def flush(self):
+        for value in self.added:
+            if isinstance(value, Package) and value.id is None:
+                value.id = 99
 
 
 def make_user(status="active", role="user"):
@@ -200,6 +209,119 @@ class AdminCreditAdjustmentTests(unittest.IsolatedAsyncioTestCase):
 
 
 class AdminPackageManagementTests(unittest.IsolatedAsyncioTestCase):
+    def test_package_write_schema_normalizes_and_validates_fields(self):
+        data = AdminPackageWriteIn(
+            name="  起名体验包  ",
+            price=Decimal("9.90"),
+            credit_count=5,
+            credit_type="name",
+        )
+        self.assertEqual("起名体验包", data.name)
+
+        invalid_values = (
+            {"name": "   ", "price": "9.90", "credit_count": 5, "credit_type": "name"},
+            {"name": "体验包", "price": "0", "credit_count": 5, "credit_type": "name"},
+            {"name": "体验包", "price": "-1", "credit_count": 5, "credit_type": "name"},
+            {"name": "体验包", "price": "1.234", "credit_count": 5, "credit_type": "name"},
+            {"name": "体验包", "price": "9.90", "credit_count": 0, "credit_type": "name"},
+            {"name": "体验包", "price": "9.90", "credit_count": -1, "credit_type": "name"},
+            {"name": "体验包", "price": "9.90", "credit_count": 5, "credit_type": "video"},
+        )
+        for values in invalid_values:
+            with self.subTest(values=values), self.assertRaises(ValidationError):
+                AdminPackageWriteIn(**values)
+
+    async def test_package_can_be_created_inactive_with_audit(self):
+        session = FakePackageWriteSession(None)
+
+        package = await AdminRepository(session).create_package(
+            admin_user_id=1,
+            name="Logo 体验包",
+            price=Decimal("19.90"),
+            credit_count=3,
+            credit_type="logo",
+        )
+
+        self.assertEqual(99, package.id)
+        self.assertFalse(package.is_active)
+        self.assertEqual("Logo 体验包", package.name)
+        audit = next(value for value in session.added if isinstance(value, AdminActionLog))
+        self.assertEqual("package_create", audit.action)
+        self.assertEqual(package.id, audit.target_package_id)
+        self.assertEqual("新建套餐：Logo 体验包", audit.reason)
+
+    async def test_duplicate_package_name_is_rejected_on_create(self):
+        with self.assertRaisesRegex(AdminPackageNameConflict, "已经存在"):
+            await AdminRepository(FakeSession(3)).create_package(
+                1, "重复套餐", Decimal("9.90"), 5, "name"
+            )
+
+    async def test_inactive_package_can_be_edited_with_lock_and_audit(self):
+        package = Package(
+            id=5,
+            name="起名体验包",
+            price=Decimal("9.90"),
+            credit_count=5,
+            credit_type="name",
+            is_active=False,
+        )
+        historical_order = SimpleNamespace(
+            amount=package.price,
+            credit_count=package.credit_count,
+            credit_type=package.credit_type,
+        )
+        session = FakeSession(package, None)
+
+        result, changed = await AdminRepository(session).update_package(
+            1, package.id, "Logo 进阶包", Decimal("39.90"), 8, "logo"
+        )
+
+        self.assertIs(result, package)
+        self.assertTrue(changed)
+        self.assertIn("FOR UPDATE", session.statements[0])
+        self.assertEqual("Logo 进阶包", package.name)
+        self.assertEqual(Decimal("39.90"), package.price)
+        self.assertEqual(8, package.credit_count)
+        self.assertEqual("logo", package.credit_type)
+        audit = next(value for value in session.added if isinstance(value, AdminActionLog))
+        self.assertEqual("package_update", audit.action)
+        self.assertIn("名称", audit.reason)
+        self.assertEqual(Decimal("9.90"), historical_order.amount)
+        self.assertEqual(5, historical_order.credit_count)
+        self.assertEqual("name", historical_order.credit_type)
+
+    async def test_active_or_missing_package_cannot_be_edited(self):
+        active = Package(
+            id=5,
+            name="起名体验包",
+            price=Decimal("9.90"),
+            credit_count=5,
+            credit_type="name",
+            is_active=True,
+        )
+        with self.assertRaisesRegex(AdminStateConflict, "请先下架"):
+            await AdminRepository(FakeSession(active)).update_package(
+                1, active.id, active.name, active.price, 8, active.credit_type
+            )
+        with self.assertRaises(AdminPackageNotFound):
+            await AdminRepository(FakeSession(None)).update_package(
+                1, 999, "不存在", Decimal("9.90"), 5, "name"
+            )
+
+    async def test_duplicate_package_name_is_rejected_on_update(self):
+        package = Package(
+            id=5,
+            name="起名体验包",
+            price=Decimal("9.90"),
+            credit_count=5,
+            credit_type="name",
+            is_active=False,
+        )
+        with self.assertRaisesRegex(AdminPackageNameConflict, "已经存在"):
+            await AdminRepository(FakeSession(package, 6)).update_package(
+                1, package.id, "已存在套餐", package.price, 5, "name"
+            )
+
     async def test_admin_package_list_includes_active_and_inactive(self):
         active = Package(
             id=1,

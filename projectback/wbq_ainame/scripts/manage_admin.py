@@ -1,3 +1,5 @@
+"""管理员账号维护命令行工具。"""
+
 import argparse
 import asyncio
 import getpass

@@ -10,8 +10,8 @@ from unittest.mock import patch
 from fastapi import HTTPException
 from starlette.datastructures import Headers, UploadFile
 
-from modules.expert.expert_repo import ExpertDomainError, ExpertRepository
-from modules.expert.expert_service import (
+from repository.expert_repo import ExpertDomainError, ExpertRepository
+from core.expert_service import (
     EXPERT_TIERS,
     calculate_commission,
     create_expert_order_no,
@@ -19,7 +19,7 @@ from modules.expert.expert_service import (
     save_private_pdf,
     save_private_image,
 )
-from modules.expert.expert_schemas import ExpertOrderCreateIn
+from schemas.expert_schemas import ExpertOrderCreateIn
 
 
 class FakeSession:

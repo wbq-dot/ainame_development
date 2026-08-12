@@ -5,7 +5,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.User import User
-from modules.expert.expert_models import (
+from models.expert_models import (
     ExpertIncome,
     ExpertOrder,
     ExpertOrderAttachment,
@@ -15,7 +15,7 @@ from modules.expert.expert_models import (
     ExpertServicePackage,
     ExpertSettlementRequest,
 )
-from modules.expert.expert_service import (
+from core.expert_service import (
     COMMISSION_RATE,
     EXPERT_TIERS,
     calculate_commission,

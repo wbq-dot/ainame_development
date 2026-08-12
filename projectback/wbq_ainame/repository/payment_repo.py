@@ -10,7 +10,7 @@ from models.User import User
 from models.payment_refund import OrderRefund
 from models.user_credit import CreditLog, UserCredit
 from models.user_order import UserOrder
-from modules.admin.admin_action_log import AdminActionLog
+from models.admin_action_log import AdminActionLog
 
 
 class PaymentNotFound(ValueError):

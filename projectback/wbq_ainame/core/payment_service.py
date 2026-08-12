@@ -1,10 +1,10 @@
 import asyncio
 import logging
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 import settings
-from core.alipaytools import create_alipay
+from core.alipaytools import create_alipay, parse_alipay_amount
 from models import AsyncSessionFactory
 from repository.payment_repo import PaymentRepository
 
@@ -18,15 +18,6 @@ DEFINITE_REFUND_FAILURES = {
     "ACQ.REASON_TRADE_REFUND_FEE_ERR",
     "ACQ.TRADE_HAS_FINISHED",
 }
-
-
-def _decimal(value) -> Decimal | None:
-    if value in (None, ""):
-        return None
-    try:
-        return Decimal(str(value))
-    except (InvalidOperation, ValueError):
-        return None
 
 
 async def reconcile_order(order_no: str) -> None:
@@ -46,7 +37,7 @@ async def reconcile_order(order_no: str) -> None:
         if code == "10000" and trade_status in PAID_STATUSES:
             if result.get("out_trade_no") != order_no:
                 raise ValueError("支付宝查单返回了其他商户订单号")
-            if _decimal(result.get("total_amount")) != Decimal(str(order.amount)):
+            if parse_alipay_amount(result.get("total_amount")) != Decimal(str(order.amount)):
                 raise ValueError("支付宝查单金额与本地订单不一致")
             trade_no = result.get("trade_no")
             if not trade_no:
@@ -110,7 +101,7 @@ async def process_refund(refund_no: str) -> None:
         ):
             async with AsyncSessionFactory() as write_session:
                 await PaymentRepository(write_session).finalize_refund_success(
-                    refund_no, _decimal(query.get("refund_amount"))
+                    refund_no, parse_alipay_amount(query.get("refund_amount"))
                 )
             return
 
@@ -134,7 +125,8 @@ async def process_refund(refund_no: str) -> None:
             async with AsyncSessionFactory() as write_session:
                 await PaymentRepository(write_session).finalize_refund_success(
                     refund_no,
-                    _decimal(result.get("refund_fee")) or Decimal(str(refund.amount)),
+                    parse_alipay_amount(result.get("refund_fee"))
+                    or Decimal(str(refund.amount)),
                 )
             return
         error = result.get("sub_msg") or result.get("msg") or "支付宝拒绝退款"

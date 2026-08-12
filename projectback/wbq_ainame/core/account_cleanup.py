@@ -10,7 +10,7 @@ from core.rag_service import delete_user_knowledge
 from core.workflow import delete_naming_thread
 from models import AsyncSessionFactory
 from models.account_security import AccountDeletionJob, NamingSession
-from modules.logo.logo_tools import LOGO_DIR
+from core.logo_tools import LOGO_DIR
 
 
 logger = logging.getLogger(__name__)

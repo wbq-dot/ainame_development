@@ -60,11 +60,13 @@ from routers.account_router import router as account_router
 
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
-from modules.logo.logo_router import router as logo_router
-from modules.admin.admin_router import router as admin_router
-from modules.expert.expert_router import router as expert_router
-from modules.expert.expert_admin_router import router as expert_admin_router
-from modules.expert.expert_pay_router import router as expert_pay_router
+from routers.logo_router import router as logo_router
+from routers.admin_router import router as admin_router
+from routers.expert_router import (
+    payment_status_router as expert_payment_status_router,
+    router as expert_router,
+)
+from routers.expert_pay_router import router as expert_pay_router
 
 
 BACKEND_DIR = Path(__file__).resolve().parent   # Path(__file__) 当前的文件路径 resolve() 解析 parent 上层的文件夹   D:\data\wbq_ainame
@@ -91,8 +93,8 @@ app.include_router(rag_router)
 app.include_router(account_router)
 app.include_router(admin_router)
 app.include_router(expert_router)
-app.include_router(expert_admin_router)
 app.include_router(expert_pay_router)
+app.include_router(expert_payment_status_router)
 
 @app.get("/")
 async def root():

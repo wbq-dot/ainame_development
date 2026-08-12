@@ -4,13 +4,13 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from modules.admin import admin_router
-from modules.admin.admin_repo import AdminEmailConflict, AdminStateConflict
-from modules.admin.admin_repo import AdminRepository
-from modules.admin.admin_schemas import AdminBootstrapIn
+from routers import admin_router
+from repository.admin_repo import AdminEmailConflict, AdminStateConflict
+from repository.admin_repo import AdminRepository
+from schemas.admin_schemas import AdminBootstrapIn
 from models.User import User
 from models.user_credit import UserCredit
-from modules.admin.admin_action_log import AdminActionLog
+from models.admin_action_log import AdminActionLog
 
 
 class FakeAdminRepository:
