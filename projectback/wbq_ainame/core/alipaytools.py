@@ -1,5 +1,7 @@
 import os
 import textwrap
+from decimal import Decimal, InvalidOperation
+from typing import Any, Mapping
 from urllib.parse import urlsplit, urlunsplit
 
 from alipay import AliPay
@@ -74,6 +76,37 @@ def create_alipay() -> AliPay:
         sign_type="RSA2",
         debug=settings.ALIPAY_ENVIRONMENT == "sandbox",
     )
+
+
+def verify_alipay_response(
+    raw_params: Mapping[str, Any],
+    *,
+    require_seller_id: bool = False,
+) -> dict[str, Any] | None:
+    """验签并校验支付宝应用身份，成功时返回移除签名字段后的参数。"""
+    params = dict(raw_params)
+    sign = params.pop("sign", None)
+    sign_type = params.pop("sign_type", None)
+    if not sign or sign_type != "RSA2":
+        return None
+    if not create_alipay().verify(params, str(sign)):
+        return None
+    if params.get("app_id") != settings.ALIPAY_APP_ID:
+        return None
+    if require_seller_id and params.get("seller_id") != settings.ALIPAY_SELLER_ID:
+        return None
+    return params
+
+
+def parse_alipay_amount(value: Any) -> Decimal | None:
+    """安全解析支付宝金额，拒绝空值、非法小数和非有限数。"""
+    if value in (None, ""):
+        return None
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+    return amount if amount.is_finite() else None
 
 
 def build_alipay_page_pay_url(

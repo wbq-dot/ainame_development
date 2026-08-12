@@ -32,17 +32,12 @@
       <view class="expert-entry" @click="openExpertCenter"><view class="expert-entry-icon purple">专</view><view><view class="expert-entry-title">专家服务</view><view class="expert-entry-desc">专家起名订单、入驻与工作台统一入口</view></view><view class="expert-entry-arrow">›</view></view>
     </view>
 
-    <view v-if="isAdmin" class="admin-entry" @click="openAdminUsers">
+    <view v-if="isAdmin" class="admin-entry" @click="openAdminConsole">
       <view class="admin-icon">管</view>
       <view class="admin-entry-main">
-        <view class="admin-entry-title">管理后台</view>
-        <view class="admin-entry-desc">管理用户、账户余额和套餐状态</view>
+        <view class="admin-entry-title">管理控制台</view>
+        <view class="admin-entry-desc">统一进入用户、交易与专家服务管理</view>
       </view>
-      <view class="admin-arrow">›</view>
-    </view>
-    <view v-if="isAdmin" class="admin-entry expert-admin" @click="openAdminExperts">
-      <view class="admin-icon">专</view>
-      <view class="admin-entry-main"><view class="admin-entry-title">专家服务管理</view><view class="admin-entry-desc">审核专家、套餐、争议退款与结算</view></view>
       <view class="admin-arrow">›</view>
     </view>
 
@@ -173,8 +168,7 @@ export default {
   },
   methods: {
     goLogin() { uni.navigateTo({ url: '/pages/auth/login' }) },
-    openAdminUsers() { uni.navigateTo({ url: '/pages/admin/users' }) },
-    openAdminExperts() { uni.navigateTo({ url: '/pages/admin/experts' }) },
+    openAdminConsole() { uni.navigateTo({ url: '/pages/admin/index' }) },
     openExpertCenter() { uni.navigateTo({ url: '/pages/expert/center' }) },
     async refreshUser() {
       try {
@@ -328,7 +322,6 @@ export default {
 .expert-entry-arrow { margin-left: auto; color: #776ce3; font-size: 36rpx; }
 .refresh-btn { width: 120rpx; height: 64rpx; margin: 0; color: #fff; background: rgba(255, 255, 255, 0.15); border: 1rpx solid rgba(255, 255, 255, 0.2); border-radius: 18rpx; font-size: 22rpx; line-height: 64rpx; }
 .admin-entry { display: flex; align-items: center; margin-top: 20rpx; padding: 25rpx 27rpx; color: #fff; background: linear-gradient(135deg, #172033, #353c56); border-radius: 25rpx; box-shadow: 0 13rpx 30rpx rgba(23, 32, 51, 0.18); }
-.admin-entry.expert-admin { background: linear-gradient(135deg, #302b61, #594db1); }
 .admin-icon { display: flex; align-items: center; justify-content: center; width: 72rpx; height: 72rpx; color: #2d3150; background: #f2d586; border-radius: 19rpx; font-size: 27rpx; font-weight: 850; }
 .admin-entry-main { flex: 1; margin-left: 19rpx; }
 .admin-entry-title { font-size: 28rpx; font-weight: 800; }

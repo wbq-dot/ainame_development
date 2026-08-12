@@ -6,7 +6,7 @@ import httpx
 import settings
 
 
-BACKEND_DIR = Path(__file__).resolve().parents[2]
+BACKEND_DIR = Path(__file__).resolve().parents[1]
 LOGO_DIR = BACKEND_DIR / "static" / "logos"
 LOGO_DIR.mkdir(parents=True, exist_ok=True)
 

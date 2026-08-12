@@ -9,7 +9,7 @@ from pathlib import Path
 from sqlalchemy import text
 
 from models import engine
-from modules.expert.expert_service import private_storage_dir
+from core.expert_service import private_storage_dir
 
 
 EXPERT_TABLES = (
@@ -235,7 +235,7 @@ def _validate_snapshot(snapshot: dict) -> None:
 
 
 def _write_manifest(snapshot: dict) -> Path:
-    backup_dir = Path(__file__).resolve().parents[2] / "backups" / "cleanup-manifests"
+    backup_dir = Path(__file__).resolve().parents[1] / "backups" / "cleanup-manifests"
     backup_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     target = backup_dir / f"expert_cleanup_{timestamp}.json"
@@ -332,7 +332,7 @@ async def execute_cleanup(confirm_token: str) -> None:
 
     storage = private_storage_dir()
     expected_storage = (
-        Path(__file__).resolve().parents[2] / "private_storage" / "expert"
+        Path(__file__).resolve().parents[1] / "private_storage" / "expert"
     ).resolve()
     if storage != expected_storage:
         raise RuntimeError("私有附件目录不符合预期，数据库已清理但未执行文件清理。")

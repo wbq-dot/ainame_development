@@ -4,7 +4,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from core import payment_service
+from core import alipaytools, payment_service
 from repository.payment_repo import PaymentRepository, RefundNotEligible
 from routers import pay_router
 
@@ -43,6 +43,62 @@ class FakePaymentRepo:
         self.close_calls.append(order_no)
 
 
+class AlipayResponseValidationTests(unittest.TestCase):
+    def setUp(self):
+        self.base_data = {
+            "sign": "signed",
+            "sign_type": "RSA2",
+            "app_id": "app-1",
+            "seller_id": "seller-1",
+            "out_trade_no": "order-1",
+        }
+
+    def verify(self, data, *, signature_valid=True, require_seller_id=False):
+        fake_alipay = SimpleNamespace(
+            verify=lambda payload, sign: signature_valid
+        )
+        with (
+            patch.object(alipaytools, "create_alipay", return_value=fake_alipay),
+            patch.object(alipaytools.settings, "ALIPAY_APP_ID", "app-1"),
+            patch.object(alipaytools.settings, "ALIPAY_SELLER_ID", "seller-1"),
+        ):
+            return alipaytools.verify_alipay_response(
+                data,
+                require_seller_id=require_seller_id,
+            )
+
+    def test_valid_response_is_verified_and_signature_fields_are_removed(self):
+        result = self.verify(dict(self.base_data), require_seller_id=True)
+        self.assertIsNotNone(result)
+        self.assertNotIn("sign", result)
+        self.assertNotIn("sign_type", result)
+        self.assertEqual("order-1", result["out_trade_no"])
+
+    def test_invalid_signature_or_sign_type_is_rejected(self):
+        self.assertIsNone(self.verify(dict(self.base_data), signature_valid=False))
+        self.assertIsNone(
+            self.verify(dict(self.base_data, sign_type="RSA"))
+        )
+
+    def test_wrong_app_or_required_seller_is_rejected(self):
+        self.assertIsNone(self.verify(dict(self.base_data, app_id="attacker")))
+        self.assertIsNone(
+            self.verify(
+                dict(self.base_data, seller_id="attacker"),
+                require_seller_id=True,
+            )
+        )
+
+    def test_amount_parser_rejects_invalid_and_non_finite_values(self):
+        for value in (None, "", "invalid", "NaN", "Infinity", "-Infinity"):
+            with self.subTest(value=value):
+                self.assertIsNone(alipaytools.parse_alipay_amount(value))
+        self.assertEqual(
+            Decimal("19.90"),
+            alipaytools.parse_alipay_amount("19.90"),
+        )
+
+
 class PaymentNotifyTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         FakePaymentRepo.payment_calls = []
@@ -62,7 +118,7 @@ class PaymentNotifyTests(unittest.IsolatedAsyncioTestCase):
     async def call_notify(self, data):
         fake_alipay = SimpleNamespace(verify=lambda payload, sign: True)
         with (
-            patch.object(pay_router, "create_alipay", return_value=fake_alipay),
+            patch.object(alipaytools, "create_alipay", return_value=fake_alipay),
             patch.object(pay_router, "OrderRepo", FakeOrderRepo),
             patch.object(pay_router, "PaymentRepository", FakePaymentRepo),
             patch.object(pay_router.settings, "ALIPAY_APP_ID", "app-1"),
@@ -105,7 +161,7 @@ class PaymentNotifyTests(unittest.IsolatedAsyncioTestCase):
         )
         fake_alipay = SimpleNamespace(verify=lambda payload, sign: True)
         with (
-            patch.object(pay_router, "create_alipay", return_value=fake_alipay),
+            patch.object(alipaytools, "create_alipay", return_value=fake_alipay),
             patch.object(pay_router.settings, "ALIPAY_APP_ID", "app-1"),
             patch.object(
                 pay_router.settings,

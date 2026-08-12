@@ -8,15 +8,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import settings
 from core.authtools import AuthHandler
 from dependencies import get_session
-from modules.admin.admin_repo import (
+from repository.admin_repo import (
     AdminRepository,
     AdminEmailConflict,
+    AdminPackageNameConflict,
     AdminPackageNotFound,
     AdminStateConflict,
     AdminTargetForbidden,
     AdminTargetNotFound,
 )
-from modules.admin.admin_schemas import (
+from repository.expert_repo import ExpertDomainError, ExpertRepository
+from schemas.admin_schemas import (
     AdminActionIn,
     AdminActionOut,
     AdminBootstrapIn,
@@ -24,10 +26,22 @@ from modules.admin.admin_schemas import (
     AdminBootstrapStatusOut,
     AdminCreditAdjustmentIn,
     AdminCreditAdjustmentOut,
+    AdminPackageMutationOut,
     AdminPackageOut,
     AdminPackageStatusIn,
     AdminPackageStatusOut,
+    AdminPackageWriteIn,
     AdminUserListOut,
+)
+from schemas.expert_schemas import (
+    AdminDecisionIn,
+    AdminDisputeIn,
+    ExpertApplicationOut,
+    ExpertOrderOut,
+    ExpertPackageOut,
+    ExpertProfileOut,
+    SettlementOut,
+    SettlementProcessIn,
 )
 from repository.payment_repo import (
     PaymentConflict,
@@ -117,6 +131,74 @@ async def list_packages(
     session: AsyncSession = Depends(get_session),
 ):
     return await AdminRepository(session).list_packages()
+
+
+@router.get("/packages/{package_id}", response_model=AdminPackageOut)
+async def get_package(
+    package_id: int,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        return await AdminRepository(session).get_package(package_id)
+    except AdminPackageNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post(
+    "/packages",
+    response_model=AdminPackageMutationOut,
+    status_code=201,
+)
+async def create_package(
+    data: AdminPackageWriteIn,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        package = await AdminRepository(session).create_package(
+            admin_user_id,
+            data.name,
+            data.price,
+            data.credit_count,
+            data.credit_type,
+        )
+    except AdminPackageNameConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="套餐名称已经存在") from exc
+    return {"message": "套餐已创建，当前为下架状态", "package": package}
+
+
+@router.put(
+    "/packages/{package_id}",
+    response_model=AdminPackageMutationOut,
+)
+async def update_package(
+    package_id: int,
+    data: AdminPackageWriteIn,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        package, changed = await AdminRepository(session).update_package(
+            admin_user_id,
+            package_id,
+            data.name,
+            data.price,
+            data.credit_count,
+            data.credit_type,
+        )
+    except AdminPackageNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except AdminPackageNameConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AdminStateConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="套餐名称已经存在") from exc
+    message = "套餐已更新" if changed else "套餐信息未变化"
+    return {"message": message, "package": package}
 
 
 @router.patch(
@@ -251,6 +333,111 @@ async def _change_status(
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except AdminStateConflict as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+def _raise_expert_domain(exc: ExpertDomainError):
+    raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.get("/expert-applications", response_model=list[ExpertApplicationOut])
+async def list_expert_applications(
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    return await ExpertRepository(session).admin_list_profiles()
+
+
+@router.post(
+    "/expert-applications/{profile_id}/decision",
+    response_model=ExpertProfileOut,
+)
+async def decide_expert_application(
+    profile_id: int,
+    data: AdminDecisionIn,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        return await ExpertRepository(session).admin_profile_decision(
+            profile_id, data.decision, data.note, data.expert_level
+        )
+    except ExpertDomainError as exc:
+        _raise_expert_domain(exc)
+
+
+@router.get("/expert-packages", response_model=list[ExpertPackageOut])
+async def list_admin_expert_packages(
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    return await ExpertRepository(session).admin_list_packages()
+
+
+@router.post(
+    "/expert-packages/{package_id}/decision",
+    response_model=ExpertPackageOut,
+)
+async def decide_expert_package(
+    package_id: int,
+    data: AdminDecisionIn,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        return await ExpertRepository(session).admin_package_decision(
+            package_id, data.decision, data.note
+        )
+    except ExpertDomainError as exc:
+        _raise_expert_domain(exc)
+
+
+@router.get("/expert-orders", response_model=list[ExpertOrderOut])
+async def list_admin_expert_orders(
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    return await ExpertRepository(session).admin_list_orders()
+
+
+@router.post("/expert-orders/{order_id}/resolve", response_model=ExpertOrderOut)
+async def resolve_expert_order(
+    order_id: int,
+    data: AdminDisputeIn,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        return await ExpertRepository(session).admin_resolve_dispute(
+            order_id, data.resolution, data.note, data.refund_reference
+        )
+    except ExpertDomainError as exc:
+        _raise_expert_domain(exc)
+
+
+@router.get("/expert-settlements", response_model=list[SettlementOut])
+async def list_admin_expert_settlements(
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    return await ExpertRepository(session).admin_list_settlements()
+
+
+@router.post(
+    "/expert-settlements/{request_id}/process",
+    response_model=SettlementOut,
+)
+async def process_expert_settlement(
+    request_id: int,
+    data: SettlementProcessIn,
+    admin_user_id: int = Depends(auth_handler.admin_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        return await ExpertRepository(session).admin_process_settlement(
+            request_id, data.decision, data.note, data.payment_reference
+        )
+    except ExpertDomainError as exc:
+        _raise_expert_domain(exc)
 
 
 @router.get("/refunds", response_model=RefundListOut)

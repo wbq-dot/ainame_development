@@ -1,5 +1,5 @@
 import logging
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Annotated
 from urllib.parse import quote
 
@@ -14,6 +14,8 @@ from core.alipaytools import (
     get_alipay_gateway,
     get_notify_url,
     get_return_url,
+    parse_alipay_amount,
+    verify_alipay_response,
 )
 from core.authtools import AuthHandler
 from dependencies import get_session
@@ -85,33 +87,23 @@ async def alipay_notify(
     request: Request, session: AsyncSession = Depends(get_session)
 ):
     try:
-        form_data = dict(await request.form())
-        sign = form_data.pop("sign", None)
-        sign_type = form_data.pop("sign_type", None)
-        if not sign or sign_type != "RSA2":
-            return PlainTextResponse("failure")
-        alipay = create_alipay()
-        if not alipay.verify(form_data, sign):
-            return PlainTextResponse("failure")
-        if form_data.get("app_id") != settings.ALIPAY_APP_ID:
-            return PlainTextResponse("failure")
-        if form_data.get("seller_id") != settings.ALIPAY_SELLER_ID:
+        form_data = verify_alipay_response(
+            dict(await request.form()),
+            require_seller_id=True,
+        )
+        if form_data is None:
             return PlainTextResponse("failure")
 
         order_no = form_data.get("out_trade_no")
         trade_no = form_data.get("trade_no")
         trade_status = form_data.get("trade_status")
-        total_amount = form_data.get("total_amount")
+        total_amount = parse_alipay_amount(form_data.get("total_amount"))
         if not order_no:
             return PlainTextResponse("failure")
         order = await OrderRepo(session).get_by_order_no(order_no)
         if not order:
             return PlainTextResponse("failure")
-        try:
-            amount_matches = Decimal(str(order.amount)) == Decimal(str(total_amount))
-        except (InvalidOperation, ValueError):
-            amount_matches = False
-        if not amount_matches:
+        if total_amount is None or Decimal(str(order.amount)) != total_amount:
             return PlainTextResponse("failure")
 
         repository = PaymentRepository(session)
@@ -140,19 +132,16 @@ def _result_redirect(order_no: str | None, verified: bool) -> RedirectResponse:
 
 @router.get("/success")
 async def pay_success(request: Request):
-    params = dict(request.query_params)
-    sign = params.pop("sign", None)
-    sign_type = params.pop("sign_type", None)
-    order_no = params.get("out_trade_no")
-    if not sign or sign_type != "RSA2":
-        return _result_redirect(None, False)
     try:
-        verified = create_alipay().verify(params, sign)
+        params = verify_alipay_response(dict(request.query_params))
     except PaymentConfigurationError:
-        verified = False
-    if not verified or params.get("app_id") != settings.ALIPAY_APP_ID:
+        params = None
+    except Exception:
+        logger.exception("支付宝同步回跳验签失败")
+        params = None
+    if params is None:
         return _result_redirect(None, False)
-    return _result_redirect(order_no, True)
+    return _result_redirect(params.get("out_trade_no"), True)
 
 
 @router.get("/orders", response_model=OrderListOut)

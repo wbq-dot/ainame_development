@@ -3,7 +3,7 @@
 import asyncio
 
 from models import AsyncSessionFactory, engine
-from modules.expert.expert_repo import ExpertRepository
+from repository.expert_repo import ExpertRepository
 
 
 async def main() -> None:

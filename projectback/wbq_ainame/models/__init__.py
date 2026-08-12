@@ -64,7 +64,6 @@ from . import package
 from . import user_order
 from . import account_security
 from . import payment_refund
-from modules.admin import admin_action_log
-from modules.expert import expert_models
-from modules.community import community_models
+from . import admin_action_log
+from . import expert_models
 
