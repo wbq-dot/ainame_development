@@ -1,3 +1,5 @@
+"""管理员接口的请求与响应模型。"""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
@@ -105,6 +107,23 @@ class AdminPackageOut(BaseModel):
     is_active: bool
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
+
+
+class AdminPackageWriteIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    price: Decimal = Field(..., gt=0, max_digits=10, decimal_places=2)
+    credit_count: int = Field(..., ge=1, le=2147483647)
+    credit_type: Literal["name", "logo"]
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def normalize_name(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class AdminPackageMutationOut(BaseModel):
+    message: str
+    package: AdminPackageOut
 
 
 class AdminPackageStatusIn(BaseModel):

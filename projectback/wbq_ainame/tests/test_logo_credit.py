@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from modules.logo import logo_router
-from modules.logo.logo_schemas import LogoGenerateIn
-from modules.logo.logo_tools import build_logo_prompt
+from routers import logo_router
+from schemas.logo_schemas import LogoGenerateIn
+from core.logo_tools import build_logo_prompt
 
 
 class FakeCreditRepository:

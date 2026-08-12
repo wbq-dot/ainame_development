@@ -203,7 +203,7 @@ class AuthHandler:
         if user.role != "expert":
             raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="需要专家权限")
         from sqlalchemy import select
-        from modules.expert.expert_models import ExpertProfile
+        from models.expert_models import ExpertProfile
 
         async with AsyncSessionFactory() as session:
             profile = await session.scalar(

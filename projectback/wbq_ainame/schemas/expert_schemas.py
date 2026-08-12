@@ -1,3 +1,5 @@
+"""专家服务接口的请求与响应模型。"""
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal

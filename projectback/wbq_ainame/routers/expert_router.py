@@ -13,9 +13,9 @@ from core.alipaytools import (
 from core.authtools import AuthHandler
 from dependencies import get_session
 from models.User import User
-from modules.expert.expert_models import ExpertOrder, ExpertOrderAttachment, ExpertProfile
-from modules.expert.expert_repo import ExpertDomainError, ExpertRepository
-from modules.expert.expert_schemas import (
+from models.expert_models import ExpertOrder, ExpertOrderAttachment, ExpertProfile
+from repository.expert_repo import ExpertDomainError, ExpertRepository
+from schemas.expert_schemas import (
     ExpertApplicationIn,
     ExpertApplicationOut,
     ExpertOrderCreateIn,
@@ -34,7 +34,7 @@ from modules.expert.expert_schemas import (
     SettlementOut,
     TextReasonIn,
 )
-from modules.expert.expert_service import (
+from core.expert_service import (
     MAX_ORDER_IMAGES,
     EXPERT_TIERS,
     private_file_path,
@@ -44,6 +44,7 @@ from modules.expert.expert_service import (
 
 
 router = APIRouter(tags=["expert-service"])
+payment_status_router = APIRouter(prefix="/expert-pay", tags=["expert-pay"])
 auth_handler = AuthHandler()
 
 
@@ -270,6 +271,27 @@ async def my_expert_orders(
         return await ExpertRepository(session).list_orders(user_id)
     except ExpertDomainError as exc:
         _raise_domain(exc)
+
+
+@payment_status_router.get("/status/{order_no}")
+async def expert_payment_status(
+    order_no: str,
+    user_id: int = Depends(auth_handler.auth_access_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    order = await session.scalar(
+        select(ExpertOrder).where(
+            ExpertOrder.order_no == order_no,
+            ExpertOrder.user_id == user_id,
+        )
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+    return {
+        "order_no": order.order_no,
+        "payment_status": order.payment_status,
+        "service_status": order.service_status,
+    }
 
 
 @router.get("/expert-orders/{order_id}", response_model=ExpertOrderOut)

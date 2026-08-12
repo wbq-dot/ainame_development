@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from models import AsyncSessionFactory, engine
 from models.User import User
-from modules.expert.expert_models import ExpertProfile
+from models.expert_models import ExpertProfile
 
 
 DEMO_EXPERTS = (

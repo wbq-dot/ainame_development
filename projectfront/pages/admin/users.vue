@@ -4,22 +4,13 @@
       <view>
         <view class="hero-eyebrow">ADMIN CONSOLE</view>
         <view class="hero-title">普通用户管理</view>
-        <view class="hero-desc">账号信息在左，余额与使用数据居中，所有账号操作统一在右。</view>
+        <view class="hero-desc">查询用户资料，集中处理余额、冻结状态和账号删除。</view>
       </view>
       <view class="hero-actions">
         <view class="total-badge"><text>{{ total }}</text>位用户</view>
-        <button class="admin-logout-btn" @click="confirmAdminLogout">退出登录</button>
+        <button class="admin-home-btn" @click="backToConsole">操作列表</button>
       </view>
     </view>
-    <view class="refund-entry" @click="openRefunds"><text>退</text><view><view>退款审批</view><small>处理用户整单退款与异常重试</small></view><b>›</b></view>
-
-    <view class="admin-nav">
-      <view class="nav-item active">用户管理</view>
-      <view class="nav-item" @click="goAdminPage('/pages/admin/packages')">套餐管理</view>
-      <view class="nav-item" @click="goAdminPage('/pages/admin/experts')">专家服务</view>
-      <view class="nav-item" @click="goAdminPage('/pages/admin/community')">社区管理</view>
-    </view>
-
     <view class="search-panel">
       <view class="search-row">
         <input v-model.trim="keyword" class="search-input" maxlength="100" placeholder="搜索邮箱或用户名" confirm-type="search" @confirm="search" />
@@ -139,7 +130,7 @@
 
 <script>
 import { api } from '../../api'
-import { handleAdminAuthError, logoutAdmin, requireAdminSession } from '../../utils/auth'
+import { handleAdminAuthError, requireAdminSession } from '../../utils/auth'
 
 export default {
   data() {
@@ -207,20 +198,7 @@ export default {
     this.loadUsers(true)
   },
   methods: {
-    goAdminPage(url) {
-      uni.navigateTo({ url })
-    },
-    confirmAdminLogout() {
-      uni.showModal({
-        title: '退出管理员登录',
-        content: '退出后将清除当前设备保存的管理员登录状态。',
-        confirmColor: '#d94a64',
-        success: ({ confirm }) => {
-          if (confirm) logoutAdmin()
-        }
-      })
-    },
-    openRefunds() { uni.navigateTo({ url: '/pages/admin/refunds' }) },
+    backToConsole() { uni.redirectTo({ url: '/pages/admin/index' }) },
     async loadUsers(reset = false) {
       if (this.loading) return
       if (reset) {
@@ -374,20 +352,12 @@ export default {
 .admin-page { min-height: 100vh; padding: 28rpx 28rpx 70rpx; background: #f3f5f9; }
 .admin-hero { display: flex; align-items: center; justify-content: space-between; padding: 34rpx 32rpx; color: #fff; background: linear-gradient(135deg, #171d2d, #373c55); border-radius: 29rpx; box-shadow: 0 18rpx 40rpx rgba(23, 29, 45, 0.2); }
 .hero-actions { display: flex; flex-direction: column; align-items: stretch; gap: 10rpx; }
-.admin-logout-btn { height: 54rpx; margin: 0; padding: 0 18rpx; color: #f5df9e; background: rgba(255,255,255,.08); border: 1rpx solid rgba(245,223,158,.35); border-radius: 15rpx; font-size: 18rpx; line-height: 52rpx; }
-.refund-entry { display:flex; align-items:center; gap:18rpx; margin-top:20rpx; padding:22rpx 25rpx; color:#30364d; background:#fff; border-radius:22rpx; box-shadow:0 10rpx 30rpx rgba(36,55,86,.05); }
-.refund-entry > text { display:flex; align-items:center; justify-content:center; width:62rpx; height:62rpx; color:#fff; background:#6257e8; border-radius:17rpx; font-weight:850; }
-.refund-entry > view { flex:1; font-size:25rpx; font-weight:800; }
-.refund-entry small { display:block; margin-top:5rpx; color:#8d95a5; font-size:19rpx; font-weight:400; }
-.refund-entry b { color:#7168c8; font-size:40rpx; }
+.admin-home-btn { height: 54rpx; margin: 0; padding: 0 18rpx; color: #f5df9e; background: rgba(255,255,255,.08); border: 1rpx solid rgba(245,223,158,.35); border-radius: 15rpx; font-size: 18rpx; line-height: 52rpx; }
 .hero-eyebrow { color: #f2d586; font-size: 17rpx; font-weight: 800; letter-spacing: 4rpx; }
 .hero-title { margin-top: 12rpx; font-size: 39rpx; font-weight: 850; }
 .hero-desc { margin-top: 10rpx; color: #c6cbd7; font-size: 21rpx; }
 .total-badge { display: flex; flex-direction: column; align-items: center; min-width: 105rpx; padding: 15rpx; color: #d7dbea; background: rgba(255,255,255,.1); border-radius: 20rpx; font-size: 18rpx; }
 .total-badge text { color: #f2d586; font-size: 34rpx; font-weight: 850; }
-.admin-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10rpx; margin-top: 20rpx; padding: 8rpx; background: #e4e7ed; border-radius: 20rpx; }
-.nav-item { padding: 18rpx 0; color: #747e91; border-radius: 15rpx; font-size: 23rpx; font-weight: 750; text-align: center; }
-.nav-item.active { color: #fff; background: #30364d; box-shadow: 0 8rpx 20rpx rgba(48,54,77,.18); }
 .search-panel { margin-top: 20rpx; padding: 24rpx; background: #fff; border-radius: 25rpx; box-shadow: 0 10rpx 30rpx rgba(36,55,86,.05); }
 .search-row { display: flex; gap: 13rpx; }
 .search-input { flex: 1; min-width: 0; height: 78rpx; padding: 0 20rpx; background: #f3f5f8; border-radius: 17rpx; font-size: 24rpx; }
@@ -450,7 +420,6 @@ export default {
 
 @media (min-width: 1280px) {
   .admin-page { max-width: 1500px; margin: 0 auto; padding-left: 34px; padding-right: 34px; }
-  .admin-nav { grid-template-columns: repeat(4, 1fr); }
   .table-head, .user-row { display: grid; grid-template-columns: minmax(280px,1.2fr) minmax(640px,2.7fr) minmax(240px,.95fr); gap: 22px; align-items: center; }
   .table-head { margin-top: 22rpx; padding: 0 27rpx 10rpx; color: #8d96a7; font-size: 19rpx; font-weight: 750; }
   .head-actions { text-align: right; }

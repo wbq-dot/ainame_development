@@ -75,7 +75,7 @@ export default {
         }
         saveLogin(data)
         uni.showToast({ title: '管理员登录成功', icon: 'success' })
-        setTimeout(() => uni.reLaunch({ url: '/pages/admin/users' }), 450)
+        setTimeout(() => uni.reLaunch({ url: '/pages/admin/index' }), 450)
       } catch (error) {
         clearLogin()
         uni.showToast({ title: error.message, icon: 'none', duration: 2800 })

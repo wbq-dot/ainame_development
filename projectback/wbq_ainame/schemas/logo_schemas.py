@@ -1,3 +1,5 @@
+"""Logo 生成接口的请求与响应模型。"""
+
 from pydantic import BaseModel, Field
 
 # 客户传入的信息

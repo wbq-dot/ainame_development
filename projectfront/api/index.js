@@ -77,6 +77,9 @@ export const api = {
     return request({ url: `/admin/users?${params}`, auth: true })
   },
   getAdminPackages: () => request({ url: '/admin/packages', auth: true }),
+  getAdminPackage: (packageId) => request({ url: `/admin/packages/${packageId}`, auth: true }),
+  createAdminPackage: (data) => request({ url: '/admin/packages', method: 'POST', data, auth: true }),
+  updateAdminPackage: (packageId, data) => request({ url: `/admin/packages/${packageId}`, method: 'PUT', data, auth: true }),
   updateAdminPackageStatus: (packageId, isActive) => request({
     url: `/admin/packages/${packageId}/status`,
     method: 'PATCH',

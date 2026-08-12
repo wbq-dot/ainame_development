@@ -6,7 +6,7 @@ import os
 
 from core.payment_service import payment_reconciliation_loop
 from models import AsyncSessionFactory
-from modules.expert.expert_repo import ExpertRepository
+from repository.expert_repo import ExpertRepository
 
 
 logger = logging.getLogger(__name__)

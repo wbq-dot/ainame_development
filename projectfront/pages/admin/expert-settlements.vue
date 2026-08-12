@@ -1,5 +1,5 @@
 <template>
-  <AdminExpertOperation section="applications" />
+  <AdminExpertOperation section="settlements" />
 </template>
 
 <script>

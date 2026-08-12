@@ -4,11 +4,11 @@ from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 
 from core.authtools import AuthHandler
-from modules.logo.logo_tools import generate_company_logo
+from core.logo_tools import generate_company_logo
 from dependencies import get_session
 from repository.credit_repo import CreditRepository, LOGO_CREDIT_COST
-from modules.logo.logo_schemas import LogoGenerateIn, LogoGenerateOut
-from modules.logo.logo_tools import LOGO_DIR
+from schemas.logo_schemas import LogoGenerateIn, LogoGenerateOut
+from core.logo_tools import LOGO_DIR
 from models.User import User
 
 
