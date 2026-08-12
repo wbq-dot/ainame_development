@@ -22,7 +22,7 @@
     </view>
 
     <view class="overview-strip">
-      <view><b>3</b><text>管理分组</text></view>
+      <view><b>{{ operationGroups.length }}</b><text>管理分组</text></view>
       <view class="strip-divider"></view>
       <view><b>{{ operationCount }}</b><text>独立入口</text></view>
       <view class="strip-divider"></view>
@@ -90,6 +90,15 @@ export default {
           description: '处理用户退款申请与异常退款流程',
           items: [
             { key: 'refunds', title: '退款审批', description: '查询退款单并审核整单退款', actions: '批准 · 驳回 · 查退 / 重试', path: '/pages/admin/refunds', icon: '退', tone: 'orange', tag: '资金' }
+          ]
+        },
+        {
+          key: 'platform',
+          title: '内容与开放平台',
+          description: '管理社区内容、开发者、API 商品、增长分销与后台任务',
+          items: [
+            { key: 'community', title: '社区内容管理', description: '审核并处理社区话题、评论与举报', actions: '筛选 · 置顶 · 隐藏 / 恢复 · 举报处理', path: '/pages/admin/community', icon: '社', tone: 'purple' },
+            { key: 'open-platform', title: '开放平台管理', description: '统一管理开发者与开放 API 业务', actions: '开发者 · 调用明细 · API 套餐 · 活动佣金 · 任务重试', path: '/pages/admin/platform', icon: 'B', tone: 'blue', tag: 'B端' }
           ]
         },
         {

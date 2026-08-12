@@ -12,7 +12,9 @@ const ADMIN_CONSOLE_ROUTES = new Set([
   'pages/admin/experts',
   'pages/admin/expert-packages',
   'pages/admin/expert-orders',
-  'pages/admin/expert-settlements'
+  'pages/admin/expert-settlements',
+  'pages/admin/community',
+  'pages/admin/platform'
 ])
 
 let adminRedirecting = false

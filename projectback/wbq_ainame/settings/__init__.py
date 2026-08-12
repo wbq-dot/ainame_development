@@ -5,6 +5,8 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
+
 JWT_ACCESS_TOKEN_EXPIRES=timedelta(minutes=15)
 JWT_REFRESH_TOKEN_EXPIRES=timedelta(days=30)
 
@@ -38,6 +40,10 @@ PAYMENT_ENABLED = _env_bool("PAYMENT_ENABLED", bool(ALIPAY_APP_ID))
 PAYMENT_FRONTEND_RESULT_URL = os.getenv(
     "PAYMENT_FRONTEND_RESULT_URL",
     "http://127.0.0.1:8080/#/pages/payment/result",
+).strip()
+DEVELOPER_PAYMENT_RESULT_URL = os.getenv(
+    "DEVELOPER_PAYMENT_RESULT_URL",
+    "http://127.0.0.1:8080/#/pages/developer/console?section=billing",
 ).strip()
 PAYMENT_ORDER_TIMEOUT_MINUTES = max(
     1, int(os.getenv("PAYMENT_ORDER_TIMEOUT_MINUTES", "60"))

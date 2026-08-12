@@ -66,4 +66,6 @@ from . import account_security
 from . import payment_refund
 from . import admin_action_log
 from . import expert_models
+from . import community_models
+from . import platform_models
 

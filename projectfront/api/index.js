@@ -49,6 +49,7 @@ export const api = {
     filePath,
     formData: { knowledge_type: knowledgeType }
   }),
+  getKnowledgeTask: (taskId) => request({ url: `/knowledge/tasks/${encodeURIComponent(taskId)}`, auth: true }),
   generateLogo: (data) => request({ url: '/logos/generate', method: 'POST', data, auth: true }),
 
   getCommunityTopics: ({ sort = 'latest', page = 1, pageSize = 20 } = {}) => request({

@@ -5,14 +5,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.User import User
-from modules.community.community_models import (
+from models.community_models import (
     CommunityCandidate,
     CommunityComment,
     CommunityReport,
     CommunityTopic,
     CommunityVote,
 )
-from modules.community.community_schemas import (
+from schemas.community_schemas import (
     CandidateCreateIn,
     CommentCreateIn,
     ReportCreateIn,

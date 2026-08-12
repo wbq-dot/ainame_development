@@ -50,6 +50,7 @@
         <view class="notice"><text class="notice-mark">i</text><text>上传后由后台切分并建立检索索引；完成时间取决于文件大小。</text></view>
         <button class="primary-btn btn-gap" :loading="uploading" :disabled="uploading || !selectedFile" @click="confirmUpload">上传并构建知识库</button>
         <view v-if="uploadResult" class="success-panel">{{ uploadResult }}</view>
+        <view v-if="taskId" class="task-panel"><text>任务 {{ taskId }}</text><b>{{ taskStatusText }}</b><button :loading="checkingTask" @click="checkTask">刷新进度</button><view v-if="taskError">{{ taskError }}</view></view>
       </view>
     </template>
   </view>
@@ -66,6 +67,10 @@ export default {
       selectedFile: null,
       uploading: false,
       uploadResult: '',
+      taskId: '',
+      taskStatus: '',
+      taskError: '',
+      checkingTask: false,
       knowledgeType: 'general',
       knowledgeTypes: [
         { value: 'general', label: '通用资料', icon: '通', desc: '三类起名都可使用' },
@@ -110,10 +115,26 @@ export default {
       try {
         const data = await api.uploadKnowledge(this.selectedFile.path, this.knowledgeType)
         this.uploadResult = data.message || '上传成功，后台正在处理。'
+        this.taskId = data.task_id || ''
+        this.taskStatus = data.status || ''
         uni.showToast({ title: '上传成功', icon: 'success' })
       } catch (error) { uni.showToast({ title: error.message, icon: 'none', duration: 3200 }) }
       finally { this.uploading = false }
+    },
+    async checkTask() {
+      if (!this.taskId) return
+      this.checkingTask = true
+      try {
+        const data = await api.getKnowledgeTask(this.taskId)
+        this.taskStatus = data.status
+        this.taskError = data.last_error || ''
+        if (data.status === 'succeeded') this.uploadResult = '知识库索引已构建完成。'
+      } catch (error) { uni.showToast({ title: error.message, icon: 'none' }) }
+      finally { this.checkingTask = false }
     }
+  },
+  computed: {
+    taskStatusText() { return { queued: '排队中', running: '处理中', succeeded: '已完成', failed: '失败', publish_failed: '等待后台重试' }[this.taskStatus] || this.taskStatus }
   }
 }
 </script>
@@ -165,4 +186,8 @@ export default {
 .notice { display: flex; gap: 13rpx; margin-top: 22rpx; padding: 18rpx; color: #547064; background: #eef8f4; border-radius: 17rpx; font-size: 21rpx; line-height: 1.55; }
 .notice-mark { font-weight: 900; }
 .success-panel { margin-top: 20rpx; padding: 20rpx; color: #19734b; background: #eaf8f1; border-radius: 17rpx; font-size: 23rpx; line-height: 1.6; }
+.task-panel { margin-top: 15rpx; padding: 18rpx; color: #315d53; background: #f0f7f5; border-radius: 16rpx; font-size: 20rpx; }
+.task-panel text,.task-panel b { display: block; word-break: break-all; }
+.task-panel b { margin-top: 8rpx; }
+.task-panel button { margin-top: 12rpx; color: #276c5c; background: #dff2ec; font-size: 20rpx; }
 </style>

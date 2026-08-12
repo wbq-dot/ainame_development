@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.authtools import AuthHandler
 from dependencies import get_session
-from modules.community.community_repo import CommunityDomainError, CommunityRepository
-from modules.community.community_schemas import (
+from repository.community_repo import CommunityDomainError, CommunityRepository
+from schemas.community_schemas import (
     AdminTopicListOut,
     CandidateCreateIn,
     CommentCreateIn,

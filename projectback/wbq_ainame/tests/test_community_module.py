@@ -3,15 +3,15 @@ from types import SimpleNamespace
 
 from pydantic import ValidationError
 
-from modules.community.community_models import (
+from models.community_models import (
     CommunityCandidate,
     CommunityComment,
     CommunityReport,
     CommunityTopic,
     CommunityVote,
 )
-from modules.community.community_repo import CommunityRepository
-from modules.community.community_schemas import ModerationIn, ReportCreateIn, TopicCreateIn
+from repository.community_repo import CommunityRepository
+from schemas.community_schemas import ModerationIn, ReportCreateIn, TopicCreateIn
 
 
 class CommunityModuleTests(unittest.TestCase):

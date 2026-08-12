@@ -5,6 +5,10 @@ from uuid import uuid4
 
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from core.authtools import AuthHandler
+from dependencies import get_session
+from sqlalchemy.ext.asyncio import AsyncSession
+from repository.platform_repo import PlatformNotFound, PlatformRepository
+from core.platform_tasks import publish_or_mark_failed
 from core.rag_service import KNOWLEDGE_TYPES
 import aio_pika
 import json
@@ -47,10 +51,11 @@ async def send_to_queue(message_dict: dict):
 
 
 
-@router.post("/upload")
+@router.post("/upload", status_code=202)
 async def upload_file(file: UploadFile = File(...),
                       knowledge_type: str = Form("general"),
-                      user_id:int=Depends(auth_handler.auth_access_dependency)):
+                      user_id:int=Depends(auth_handler.auth_access_dependency),
+                      session: AsyncSession = Depends(get_session)):
     knowledge_type = knowledge_type.strip().lower()
     if knowledge_type not in KNOWLEDGE_TYPES:
         raise HTTPException(
@@ -85,16 +90,14 @@ async def upload_file(file: UploadFile = File(...),
     finally:
         await file.close()
 
-    task_message = {
-        "user_id": user_id,
-        "file_path": str(file_path),
-        "knowledge_type": knowledge_type,
-    }
-    try:
-        await send_to_queue(task_message)
-    except Exception as exc:
-        file_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=503, detail="知识库任务队列暂时不可用") from exc
+    task = await PlatformRepository(session).create_task(
+        task_type="knowledge_index",
+        owner_type="user",
+        owner_id=user_id,
+        total=1,
+        payload={"file_path": str(file_path), "knowledge_type": knowledge_type, "original_name": safe_name},
+    )
+    published = await publish_or_mark_failed(task.task_no)
 
     type_labels = {
         "general": "通用",
@@ -102,5 +105,24 @@ async def upload_file(file: UploadFile = File(...),
         "company": "企业名",
         "pet": "宠物名",
     }
-    return {"result": "success",
-        "message": f"文件 {safe_name} 已作为{type_labels[knowledge_type]}资料上传！后台正在构建专属知识库。"}
+    return {
+        "result": "success" if published else "publish_failed",
+        "task_id": task.task_no,
+        "status": "queued" if published else "publish_failed",
+        "message": (
+            f"文件 {safe_name} 已作为{type_labels[knowledge_type]}资料上传，后台任务已排队。"
+            if published else "文件已安全保存，但任务队列暂不可用，可由管理员重新入队。"
+        ),
+    }
+
+
+@router.get("/tasks/{task_no}")
+async def knowledge_task(
+    task_no: str,
+    user_id: int = Depends(auth_handler.auth_access_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        return await PlatformRepository(session).task_detail(task_no, "user", user_id)
+    except PlatformNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
